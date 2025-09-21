@@ -15,9 +15,9 @@ if (!appId || !appSecret || !rpcUrl) {
 
 // Create PrivyClient instance
 export const privyClient = new PrivyClient(appId, appSecret, {
-  walletApi: {
-    authorizationPrivateKey: authKey || undefined, // Optional
-  },
+  // walletApi: {
+  //   authorizationPrivateKey: authKey || undefined, // Optional
+  // },
 });
 
 // Create ethers provider

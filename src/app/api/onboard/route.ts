@@ -15,14 +15,56 @@ export async function POST(request: NextRequest) {
     }
     
     console.log(`Onboarding user ${walletId}`);
-
-    // Fetch wallet from Privy
-    const wallet = await privyClient.walletApi.getWallet({ id: walletId });
-    const address = wallet.address;
+    const users = await privyClient.getUsers();
+    console.log(`Users: ${JSON.stringify(users, null, 2)}`);
+    
+    // Find the specific user by ID
+    const user = users.find(u => u.id === walletId);
+    if (!user) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 400 }
+      );
+    }
+    
+    let wallet;
+    let address: string;
+    let actualWalletId: string;
+    
+    // Check if user has a wallet, if not create one
+    const existingWallet = user.wallet;
+    if (!existingWallet || !existingWallet.id) {
+      console.log('User does not have a wallet, creating one...');
+      
+      // Create a new Ethereum wallet for the user
+      wallet = await privyClient.walletApi.createWallet({
+        chainType: 'ethereum',
+        owner: {
+          userId: user.id
+        }
+      });
+      
+      address = wallet.address;
+      actualWalletId = wallet.id;
+      console.log(`Created new wallet: ${wallet.id} at address: ${address}`);
+    } else {
+      // User has an existing wallet
+      actualWalletId = existingWallet.id
+      address = existingWallet.address;
+      
+      // // If wallet ID is null, fetch the full wallet details
+      // if (!existingWallet.id) {
+      //   console.log('Wallet ID is null, using address as identifier');
+      // } else {
+      //   wallet = await privyClient.walletApi.getWallet({ id: existingWallet.id });
+      // }
+      
+      // console.log(`Using existing wallet: ${actualWalletId} at address: ${address}`);
+    }
 
     // Create an ethers signer
     const signer = createEthersSigner({
-        walletId,
+        walletId: actualWalletId,
         address,
         provider,
         privyClient: privyClient as any // Type assertion to resolve pnpm symlink type conflicts
@@ -31,7 +73,10 @@ export async function POST(request: NextRequest) {
     console.log(`Wallet address: ${address}`);
 
     // Initialize Hyperliquid clients
-    const transport = new HttpTransport();
+    const transport = new HttpTransport({
+      isTestnet:true,
+      timeout:1000
+    });
 
     const client = new ExchangeClient({
         transport,

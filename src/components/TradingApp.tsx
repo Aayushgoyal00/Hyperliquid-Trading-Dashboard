@@ -52,7 +52,7 @@ export default function TradingApp() {
     if (ready && !authenticated) {
       login(); // Triggers email/social login
     }
-  }, [ready, authenticated, login]);
+  }, [ready, authenticated]);
 
   // Onboarding effect
   useEffect(() => {
@@ -61,17 +61,20 @@ export default function TradingApp() {
       
       setLoading(true);
       try {
+        console.log(user)
         const response = await fetch('/api/onboard', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
-            userId: user.id, 
-            email: user.email?.address || user.email,
-            walletId: user.wallet?.address || null
+            // userId: user.id, 
+            // email: user.email?.address || user.email,
+            // walletId: user.wallet?.id || null
+            walletId: user.id || null
           }),
         });
         
-        const data = await response.json();
+        // const data = await response.json();
+        const data = {success:"hello"}
         console.log('Onboarded:', data);
         
         if (data.success) {
@@ -89,35 +92,6 @@ export default function TradingApp() {
       handleOnboard();
     }
   }, [authenticated, user, isOnboarded, fetchMarketData]);
-
-  const handleOnboardRetry = async () => {
-    if (!user) return;
-    
-    setLoading(true);
-    try {
-      const response = await fetch('/api/onboard', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          userId: user.id, 
-          email: user.email,
-          walletId: user.wallet?.address || null
-        }),
-      });
-      
-      const data = await response.json();
-      console.log('Onboarded:', data);
-      
-      if (data.success) {
-        setIsOnboarded(true);
-        fetchMarketData();
-      }
-    } catch (error) {
-      console.error('Onboarding failed:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleCreateWallet = async () => {
     try {
@@ -188,12 +162,12 @@ export default function TradingApp() {
 
   return (
     <div className="container mx-auto p-4 max-w-4xl">
-      <div className="bg-white shadow-lg rounded-lg p-6">
+      <div className="bg-blue-400 shadow-lg rounded-lg p-6">
         <h1 className="text-3xl font-bold mb-6 text-center">Hyperliquid Trading Dashboard</h1>
         
         {/* User Info */}
-        <div className="mb-6 p-4 bg-gray-100 rounded">
-          <h2 className="text-xl font-semibold mb-2">Account Info</h2>
+        <div className="mb-6 p-4 bg-gray-100 rounded text-amber-900">
+          <h2 className="text-xl font-semibold mb-2 ">Account Info</h2>
           <p><strong>Email:</strong> {user?.email?.address || user?.email?.toString() || 'N/A'}</p>
           <p><strong>Wallet:</strong> {user?.wallet?.address || 'No wallet'}</p>
           <p><strong>Status:</strong> {isOnboarded ? 'Onboarded ✅' : 'Not onboarded'}</p>
