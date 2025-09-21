@@ -29,7 +29,7 @@ interface OrderData {
 }
 
 export default function TradingApp() {
-  const { ready, authenticated, user, login, createWallet } = usePrivy();
+  const { ready, authenticated, user, login, createWallet ,logout } = usePrivy();
   const [isOnboarded, setIsOnboarded] = useState(false);
   const [marketData, setMarketData] = useState<MarketData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -184,7 +184,15 @@ export default function TradingApp() {
         
         {/* User Info */}
         <div className="mb-6 p-4 bg-amber-50 rounded text-amber-900">
-          <h2 className="text-xl font-semibold mb-2 ">Account Info</h2>
+          <div className="flex justify-between items-start mb-2">
+            <h2 className="text-xl font-semibold">Account Info</h2>
+            <button 
+              onClick={logout}
+              className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-3 rounded text-sm"
+            >
+              Logout
+            </button>
+          </div>
           {/* <p><strong>Email:</strong> {user?.email?.address || user?.email?.toString() || 'N/A'}</p> */}
           <p><strong>Wallet:</strong> {user?.wallet?.address || 'No wallet'}</p>
           <p><strong>Status:</strong> {isOnboarded ? 'Onboarded ✅' : 'Not onboarded'}</p>
