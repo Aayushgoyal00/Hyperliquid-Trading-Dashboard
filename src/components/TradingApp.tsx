@@ -39,8 +39,15 @@ export default function TradingApp() {
 
   const fetchMarketData = useCallback(async () => {
     try {
-      const response = await fetch(`/api/exchange-info?address=${user?.wallet?.address}`);
+      if (!user || user.wallet?.address==undefined) return;
+      
+      // Use query parameters for GET request instead of body
+      const response = await fetch(`/api/exchange-info?walletAddress=${encodeURIComponent(user.wallet?.address)}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
       const data = await response.json();
+      console.log(data)
       setMarketData(data);
     } catch (error) {
       console.error('Failed to fetch market data:', error);
@@ -65,16 +72,13 @@ export default function TradingApp() {
         const response = await fetch('/api/onboard', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            // userId: user.id, 
-            // email: user.email?.address || user.email,
-            // walletId: user.wallet?.id || null
+          body: JSON.stringify({
             walletId: user.id || null
           }),
         });
         
         // const data = await response.json();
-        const data = {success:"hello"}
+        const data = {success:"Welcome here"}
         console.log('Onboarded:', data);
         
         if (data.success) {
@@ -166,9 +170,9 @@ export default function TradingApp() {
         <h1 className="text-3xl font-bold mb-6 text-center">Hyperliquid Trading Dashboard</h1>
         
         {/* User Info */}
-        <div className="mb-6 p-4 bg-gray-100 rounded text-amber-900">
+        <div className="mb-6 p-4 bg-amber-50 rounded text-amber-900">
           <h2 className="text-xl font-semibold mb-2 ">Account Info</h2>
-          <p><strong>Email:</strong> {user?.email?.address || user?.email?.toString() || 'N/A'}</p>
+          {/* <p><strong>Email:</strong> {user?.email?.address || user?.email?.toString() || 'N/A'}</p> */}
           <p><strong>Wallet:</strong> {user?.wallet?.address || 'No wallet'}</p>
           <p><strong>Status:</strong> {isOnboarded ? 'Onboarded ✅' : 'Not onboarded'}</p>
           
@@ -185,14 +189,14 @@ export default function TradingApp() {
 
         {/* Market Data */}
         {marketData && (
-          <div className="mb-6 p-4 bg-blue-50 rounded">
+          <div className="mb-6 p-4 bg-yellow-50 rounded text-amber-900">
             <h2 className="text-xl font-semibold mb-2">Market Data</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <h3 className="font-medium">BTC Info</h3>
-                <p>Mark Price: ${marketData.btc.markPx}</p>
-                <p>Formatted Price: ${marketData.btc.formattedPrice}</p>
-                <p>Formatted Size: {marketData.btc.formattedSize}</p>
+                {/* <p>Mark Price: ${marketData.btc.markPx}</p> */}
+                {/* <p>Formatted Price: ${marketData.btc.formattedPrice}</p>
+                <p>Formatted Size: {marketData.btc.formattedSize}</p> */}
               </div>
               <div>
                 <h3 className="font-medium">Available Assets</h3>
@@ -214,7 +218,7 @@ export default function TradingApp() {
 
         {/* Trading Form */}
         {isOnboarded && user?.wallet && (
-          <div className="p-4 bg-yellow-50 rounded">
+          <div className="p-4 bg-yellow-50 rounded text-amber-900">
             <h2 className="text-xl font-semibold mb-4">Place Order</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>

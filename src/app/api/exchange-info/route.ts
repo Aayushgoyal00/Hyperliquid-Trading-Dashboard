@@ -4,17 +4,25 @@ import { HttpTransport,InfoClient } from '@nktkas/hyperliquid';
 
 export async function GET(request: NextRequest) {
   try {
-    const { walletId } = await request.json();
+    // Get walletAddress from query parameters instead of request body
+    const { searchParams } = new URL(request.url);
+    const walletAddress = searchParams.get('walletAddress');
 
-    if (!walletId) {
+    if (!walletAddress) {
       return NextResponse.json(
-        { error: 'Missing walletId' },
+        { error: 'Missing walletAddress' },
         { status: 400 }
       );
     }
 
     // Initialize Hyperliquid clients
-    const transport = new HttpTransport();
+    const transport = new HttpTransport({
+      isTestnet:true,
+      timeout:5000,
+      fetchOptions:{
+        keepalive:false
+      }
+    });
     const publicClient = new InfoClient({ transport });
 
     // Fetch meta and asset contexts
@@ -27,10 +35,13 @@ export async function GET(request: NextRequest) {
     if (btcIndex === -1) {
       throw new Error('BTC not found in universe');
     }
+    // console.log(btcIndex);
+    // console.log(walletAddress);
+
     // Get user state if wallet exists
     let userState = null;
     try {
-      userState = await publicClient.clearinghouseState({ user: walletId as `0x${string}` });
+      userState = await publicClient.clearinghouseState({ user: walletAddress as `0x${string}` });
     } catch {
       console.log('User not found on Hyperliquid, that\'s okay for new users');
     }
