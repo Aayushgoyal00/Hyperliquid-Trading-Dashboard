@@ -10,12 +10,15 @@ interface Asset {
 }
 
 interface MarketData {
+  success: boolean;
   assets: Asset[];
   btc: {
     markPx: string;
-    formattedPrice: string;
-    formattedSize: string;
   };
+  userState: {
+    marginSummary: any;
+    assetPositions: any;
+  } | null;
 }
 
 interface OrderData {
@@ -39,16 +42,26 @@ export default function TradingApp() {
 
   const fetchMarketData = useCallback(async () => {
     try {
-      if (!user || user.wallet?.address==undefined) return;
+      if (!user || user.wallet?.address == undefined) return;
       
       // Use query parameters for GET request instead of body
       const response = await fetch(`/api/exchange-info?walletAddress=${encodeURIComponent(user.wallet?.address)}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const data = await response.json();
-      console.log(data)
-      setMarketData(data);
+      console.log('Market data received:', data);
+      
+      if (data.success) {
+        setMarketData(data);
+      } else {
+        console.error('API returned error:', data.error);
+      }
     } catch (error) {
       console.error('Failed to fetch market data:', error);
     }
@@ -191,20 +204,37 @@ export default function TradingApp() {
         {marketData && (
           <div className="mb-6 p-4 bg-yellow-50 rounded text-amber-900">
             <h2 className="text-xl font-semibold mb-2">Market Data</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <h3 className="font-medium">BTC Info</h3>
-                {/* <p>Mark Price: ${marketData.btc.markPx}</p> */}
-                {/* <p>Formatted Price: ${marketData.btc.formattedPrice}</p>
-                <p>Formatted Size: {marketData.btc.formattedSize}</p> */}
+                <p>Mark Price: ${marketData.btc.markPx}</p>
               </div>
               <div>
-                <h3 className="font-medium">Available Assets</h3>
+                <h3 className="font-medium">Available Assets ({marketData.assets.length})</h3>
                 <div className="text-sm">
                   {marketData.assets.slice(0, 5).map((asset, index) => (
                     <div key={index}>{asset.name}</div>
                   ))}
+                  {marketData.assets.length > 5 && (
+                    <div className="text-xs text-gray-600">...and {marketData.assets.length - 5} more</div>
+                  )}
                 </div>
+              </div>
+              <div>
+                <h3 className="font-medium">User Account</h3>
+                {marketData.userState ? (
+                  <div className="text-sm">
+                    <p className="text-green-600">✓ Account exists on Hyperliquid</p>
+                    {marketData.userState.marginSummary && (
+                      <p>Account Value: ${marketData.userState.marginSummary.accountValue || 'N/A'}</p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-sm">
+                    <p className="text-orange-600">⚠ No account found</p>
+                    <p className="text-xs">Bridge USDC to Hyperliquid to start trading</p>
+                  </div>
+                )}
               </div>
             </div>
             <button 
