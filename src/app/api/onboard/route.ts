@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-// import { HttpTransport,ExchangeClient,InfoClient} from '@nktkas/hyperliquid';
+import { HttpTransport,InfoClient} from '@nktkas/hyperliquid';
 import { privyClient ,provider} from '@/utils/privy-signature';
 import { createEthersSigner } from '@privy-io/server-auth/ethers';
+import { ethers } from 'ethers';
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
     let address: string;
     let actualWalletId: string;
     let isNewWallet = false;
-    
+
     // Check linkedAccounts for embedded wallets
     const embeddedWalletAccount = user.linkedAccounts.find(account => 
       account.type === 'wallet' && 
@@ -53,6 +54,7 @@ export async function POST(request: NextRequest) {
       
       address = wallet.address;
       actualWalletId = wallet.id;
+      isNewWallet = true;
       console.log(`Created new wallet: ${wallet.id} at address: ${address}`);
     } else {
       // User has an existing embedded wallet
@@ -60,39 +62,56 @@ export async function POST(request: NextRequest) {
       actualWalletId = embeddedWalletAccount.id;
       
       console.log(`Found embedded wallet with ID: ${actualWalletId} at address: ${address}`);
-      
-      // Fetch the full wallet details using the wallet API
-      // wallet = await privyClient.walletApi.getWallet({ id: actualWalletId });
-      
-      // console.log(`Retrieved wallet details:`, {
-      //   id: wallet.id,
-      //   address: wallet.address,
-      //   chainType: wallet.chainType
-      // });
     }
 
-    // Create an ethers signer
-    // const signer = createEthersSigner({
-    //     walletId: actualWalletId,
-    //     address,
-    //     provider,
-    //     privyClient: privyClient as any // Type assertion to resolve pnpm symlink type conflicts
-    // });
+    // Check wallet balance on Base chain
+    const balance = await provider.getBalance(address);
+    const balanceInEth = ethers.formatEther(balance);
+    console.log(`Wallet balance: ${balanceInEth} ETH`);
 
-    console.log(`Wallet address: ${address}`);
+// Initialize Hyperliquid client to check account status
+    const transport = new HttpTransport({
+      isTestnet: true,
+      timeout: 5000,
+      fetchOptions: {
+        keepalive: false
+      }
+    });
 
-    // Initialize Hyperliquid clients
-    // const transport = new HttpTransport({
-    //   isTestnet:true,
-    //   timeout:1000
-    // });
+    const infoClient = new InfoClient({ transport })
 
-    // const client = new ExchangeClient({
-    //     transport,
-    //     wallet: signer
-    // });
 
-    // const infoClient = new InfoClient({ transport })
+    // Check if user exists on Hyperliquid
+    let hyperliquidAccount = null;
+    let needsHyperliquidFunding = false;
+    
+    try {
+      const userState = await infoClient.clearinghouseState({ 
+        user: address as `0x${string}` 
+      });
+      
+      hyperliquidAccount = {
+        exists: true,
+        accountValue: userState.marginSummary.accountValue,
+        totalRawUsd: userState.marginSummary.totalRawUsd,
+        hasPositions: userState.assetPositions.length > 0
+      };
+
+      // Check if account needs funding (less than $1)
+      const accountValue = parseFloat(userState.marginSummary.accountValue);
+      needsHyperliquidFunding = accountValue < 1;
+      
+      console.log(`Hyperliquid account value: $${accountValue}`);
+      } catch (error) {
+      console.log('User not found on Hyperliquid');
+      hyperliquidAccount = {
+        exists: false
+      };
+      needsHyperliquidFunding = true;
+    }
+
+    // Determine if user needs to deposit
+    const needsDeposit = parseFloat(balanceInEth) < 0.0001 || needsHyperliquidFunding;
 
     // Check Hyperliquid account
     // const preTransferCheck = await infoClient.preTransferCheck({
@@ -122,11 +141,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       address,
-      walletId:actualWalletId,
-      // hyperliquidAccount,
-      // fundingMessage,
-      message:'Wallet ready for trading' });
-
+      walletId: actualWalletId,
+      isNewWallet,
+      balance: {
+        eth: balanceInEth,
+        needsDeposit: parseFloat(balanceInEth) < 0.0001,
+        message: parseFloat(balanceInEth) < 0.0001 
+          ? 'Please deposit ETH to your wallet to cover gas fees'
+          : 'Wallet has sufficient ETH for gas'
+      },
+      hyperliquid: {
+        exists: hyperliquidAccount?.exists || false,
+        accountValue: hyperliquidAccount?.accountValue || '0',
+        needsFunding: needsHyperliquidFunding,
+        message: needsHyperliquidFunding
+          ? 'Please bridge USDC to Hyperliquid to start trading'
+          : 'Hyperliquid account is funded and ready'
+      },
+      canTrade: !needsDeposit,
+      message: needsDeposit 
+        ? 'Please fund your wallet to continue' 
+        : 'Wallet ready for trading'
+    });
   } catch (error) {
     console.error('Onboarding error:', error);
     return NextResponse.json(
