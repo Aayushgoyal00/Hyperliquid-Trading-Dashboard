@@ -55,7 +55,7 @@ export default function TradingApp() {
       }
       
       const data = await response.json();
-      console.log('Market data received:', data);
+      // console.log('Market data received:', data);
       
       if (data.success) {
         setMarketData(data);
@@ -81,7 +81,7 @@ export default function TradingApp() {
       
       setLoading(true);
       try {
-        console.log(user)
+        // console.log(user)
         const response = await fetch('/api/onboard', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -92,7 +92,7 @@ export default function TradingApp() {
         
         // const data = await response.json();
         const data = {success:"Welcome here"}
-        console.log('Onboarded:', data);
+        // console.log('Onboarded:', data);
         
         if (data.success) {
           setIsOnboarded(true);
@@ -127,6 +127,7 @@ export default function TradingApp() {
     
     setLoading(true);
     try {
+      console.log(user)
       const response = await fetch('/api/place-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

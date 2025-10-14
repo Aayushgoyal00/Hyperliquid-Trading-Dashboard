@@ -30,6 +30,7 @@ export async function POST(request: NextRequest) {
     let wallet;
     let address: string;
     let actualWalletId: string;
+    let isNewWallet = false;
     
     // Check linkedAccounts for embedded wallets
     const embeddedWalletAccount = user.linkedAccounts.find(account => 
@@ -121,6 +122,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       address,
+      walletId:actualWalletId,
       // hyperliquidAccount,
       // fundingMessage,
       message:'Wallet ready for trading' });

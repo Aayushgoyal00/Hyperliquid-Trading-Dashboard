@@ -6,7 +6,7 @@ import { HttpTransport, InfoClient, ExchangeClient } from '@nktkas/hyperliquid';
 export async function POST(request: NextRequest) {
   try {
     const { walletId, assetName, isBuy, size, price} = await request.json();
-
+    console.log('Received order request:', { walletId, assetName, isBuy, size, price });
     if (!walletId || !assetName || typeof isBuy !== 'boolean' || !size) {
       return NextResponse.json(
         { error: 'Missing required parameters: walletId, assetName, isBuy, size' },
@@ -15,7 +15,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Initialize Hyperliquid clients
-    const transport = new HttpTransport();
+    const transport = new HttpTransport({
+      isTestnet:true,
+      timeout:5000,
+      fetchOptions:{
+        keepalive:false
+      }
+    });
     const publicClient = new InfoClient({ transport });
     
     // Get the signer from Privy
@@ -26,20 +32,20 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    
-    // Create exchange client with the signer
+    const walletAddress = await signer.getAddress();
+    console.log(`Retrieved wallet address: ${walletAddress}`);
     const exchangeClient = new ExchangeClient({
         transport,
-        wallet: signer // This should now be compatible with AbstractWallet
+        wallet: signer// This should now be compatible with AbstractWallet
     });
     let userState = null;
     try {
-      userState = await publicClient.preTransferCheck({ user: walletId as `0x${string}` ,source:walletId});
+      userState = await publicClient.preTransferCheck({ user: walletAddress as `0x${string}` ,source:walletAddress as `0x${string}`});
       if (!userState.userExists) {
   throw new Error("Hyperliquid account does not exist for this wallet.");
 }
-    } catch {
-      console.log('User not found on Hyperliquid, that\'s okay for new users');
+    } catch (e) {
+      console.log(e);
     }
     // Get asset metadata to find the asset index
     const metaAndCtx = await publicClient.metaAndAssetCtxs();

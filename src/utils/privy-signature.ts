@@ -15,9 +15,9 @@ if (!appId || !appSecret || !rpcUrl) {
 
 // Create PrivyClient instance
 export const privyClient = new PrivyClient(appId, appSecret, {
-  // walletApi: {
-  //   authorizationPrivateKey: authKey || undefined, // Optional
-  // },
+  walletApi: {
+    authorizationPrivateKey: authKey || undefined,
+  },
 });
 
 // Create ethers provider
@@ -26,6 +26,7 @@ export const provider = new ethers.JsonRpcProvider(rpcUrl);
 export const getSigner = async (walletId: string) => {
     try{
         const wallet = await privyClient.walletApi.getWallet({ id: walletId });
+        // console.log(`Retrieved wallet address: ${wallet.address}`);
         const address = wallet.address;
         return createEthersSigner({
             walletId,
@@ -34,6 +35,7 @@ export const getSigner = async (walletId: string) => {
             privyClient: privyClient as any // Type assertion to resolve pnpm symlink type conflicts
         });
     }catch(e){
+      console.log(`Error : ${e}`)
         return null
     }
 };
