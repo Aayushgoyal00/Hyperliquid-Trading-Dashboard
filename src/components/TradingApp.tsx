@@ -131,6 +131,7 @@ export default function TradingApp() {
       
       setLoading(true);
       try {
+        console.log('Starting onboarding for user:', user);
         const response = await fetch('/api/onboard', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -164,7 +165,14 @@ export default function TradingApp() {
   }, [authenticated, user, isOnboarded, fetchMarketData]);
 
   const handleTransferFromExternal = async () => {
-    if (!onboardingData?.externalWallet || !onboardingData.embeddedWallet) return;
+    if (!user?.wallet?.address || !transferAmount || !onboardingData?.embeddedWallet?.address) return;
+    
+    // Parse and validate the transfer amount
+    const amount = parseFloat(transferAmount);
+    if (isNaN(amount) || amount <= 0) {
+      alert('Please enter a valid amount');
+      return;
+    }
     
     setLoading(true);
     try {
@@ -172,26 +180,26 @@ export default function TradingApp() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          fromAddress: onboardingData.externalWallet.address,
-          toAddress: onboardingData.embeddedWallet.address,
-          amount: transferAmount,
+          fromWalletId: onboardingData.embeddedWallet.walletId, // Current wallet address (acts as wallet ID for Hyperliquid)
+          toAddress: onboardingData.embeddedWallet.address, // For now, transferring within same account (you can change this)
+          amount: amount.toString(),
         }),
       });
       
       const data = await response.json();
       
       if (data.success) {
-        alert(`Transfer initiated! Please sign the transaction in your wallet.`);
-        // Refresh onboarding data after a delay
+        alert(`✅ Transfer successful! Transferred $${amount} USDC\n\nNew Balance: $${data.balances.recipient.after}`);
+        // Refresh onboarding data after transfer
         setTimeout(() => {
           setIsOnboarded(false);
-        }, 3000);
+        }, 2000);
       } else {
-        alert('Transfer failed: ' + data.error);
+        alert('❌ Transfer failed: ' + data.error);
       }
     } catch (error) {
       console.error('Transfer failed:', error);
-      alert('Transfer failed: ' + error);
+      alert('❌ Transfer failed: ' + error);
     } finally {
       setLoading(false);
     }
