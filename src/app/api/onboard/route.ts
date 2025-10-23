@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
       embeddedAddress = embeddedWalletAccount.address;
       actualWalletId = embeddedWalletAccount.id;
       
-      console.log(`Found existing embedded wallet with ID: ${actualWalletId} at address: ${embeddedAddress}`);
+      // console.log(`Found existing embedded wallet with ID: ${actualWalletId} at address: ${embeddedAddress}`);
     }
 
     // Check for external connected wallet (MetaMask, Coinbase, etc.)
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
 
     if (externalWalletAccount) {
       externalWalletAddress = externalWalletAccount.address;
-      console.log(`Found external wallet: ${externalWalletAddress}`);
+      // console.log(`Found external wallet: ${externalWalletAddress}`);
     }
 
     // Check embedded wallet balance on Base chain

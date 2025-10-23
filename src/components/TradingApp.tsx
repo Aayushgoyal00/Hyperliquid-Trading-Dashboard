@@ -165,7 +165,7 @@ export default function TradingApp() {
   }, [authenticated, user, isOnboarded, fetchMarketData]);
 
   const handleTransferFromExternal = async () => {
-    if (!user?.wallet?.address || !transferAmount || !onboardingData?.embeddedWallet?.address) return;
+    if (!user?.wallet?.address || !transferAmount || !onboardingData?.embeddedWallet?.address || !onboardingData?.externalWallet?.address) return;
     
     // Parse and validate the transfer amount
     const amount = parseFloat(transferAmount);
@@ -181,7 +181,7 @@ export default function TradingApp() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fromWalletId: onboardingData.embeddedWallet.walletId, // Current wallet address (acts as wallet ID for Hyperliquid)
-          toAddress: onboardingData.embeddedWallet.address, // For now, transferring within same account (you can change this)
+          toAddress: onboardingData.externalWallet.address, // For now, transferring within same account (you can change this)
           amount: amount.toString(),
         }),
       });
