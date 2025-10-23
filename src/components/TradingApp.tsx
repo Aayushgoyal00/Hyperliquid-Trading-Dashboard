@@ -30,18 +30,31 @@ interface OrderData {
 
 interface OnboardingData {
   success: boolean;
-  address: string;
-  walletId: string;
-  isNewWallet: boolean;
-  balance: {
-    eth: string;
-    needsDeposit: boolean;
-    message: string;
+  embeddedWallet: {
+    address: string;
+    walletId: string;
+    isNew: boolean;
+    ethBalance: string;
+    hyperliquid: {
+      exists: boolean;
+      accountValue?: string;
+      totalRawUsd?: string;
+      hasPositions?: boolean;
+    };
   };
-  hyperliquid: {
-    exists: boolean;
-    accountValue: string;
-    needsFunding: boolean;
+  externalWallet: {
+    address: string;
+    hyperliquid: {
+      exists: boolean;
+      accountValue?: string;
+      totalRawUsd?: string;
+      hasPositions?: boolean;
+    };
+  } | null;
+  funding: {
+    needsEthDeposit: boolean;
+    needsEmbeddedHyperliquidFunding: boolean;
+    canTransferFromExternal: boolean;
     message: string;
   };
   canTrade: boolean;
@@ -49,11 +62,12 @@ interface OnboardingData {
 }
 
 export default function TradingApp() {
-  const { ready, authenticated, user, login, createWallet, logout } = usePrivy();
+  const { ready, authenticated, user, login, logout } = usePrivy();
   const [isOnboarded, setIsOnboarded] = useState(false);
   const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(null);
   const [marketData, setMarketData] = useState<MarketData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [transferAmount, setTransferAmount] = useState('10');
   const [orderForm, setOrderForm] = useState<OrderData>({
     assetName: 'BTC',
     isBuy: true,
@@ -63,9 +77,9 @@ export default function TradingApp() {
 
   const fetchMarketData = useCallback(async () => {
     try {
-      if (!user || user.wallet?.address == undefined) return;
+      if (!onboardingData?.embeddedWallet?.address) return;
       
-      const response = await fetch(`/api/exchange-info?walletAddress=${encodeURIComponent(user.wallet?.address)}`, {
+      const response = await fetch(`/api/exchange-info?walletAddress=${encodeURIComponent(onboardingData.embeddedWallet.address)}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -84,7 +98,7 @@ export default function TradingApp() {
     } catch (error) {
       console.error('Failed to fetch market data:', error);
     }
-  }, [user?.wallet?.address]);
+  }, [onboardingData?.embeddedWallet?.address]);
 
   // Auto-login effect
   useEffect(() => {
@@ -93,7 +107,14 @@ export default function TradingApp() {
     }
   }, [ready, authenticated]);
 
-  // Reset state when user changes (logout/login with different account)
+  // Reset state when user changes
+  useEffect(() => {
+    if (!authenticated || !user) {
+      setIsOnboarded(false);
+      setOnboardingData(null);
+      setMarketData(null);
+    }
+  }, [authenticated, user?.id]);
   useEffect(() => {
     if (!authenticated || !user) {
       // Clear all state when user logs out
@@ -142,22 +163,44 @@ export default function TradingApp() {
     }
   }, [authenticated, user, isOnboarded, fetchMarketData]);
 
-  const handleCreateWallet = async () => {
+  const handleTransferFromExternal = async () => {
+    if (!onboardingData?.externalWallet || !onboardingData.embeddedWallet) return;
+    
+    setLoading(true);
     try {
-      await createWallet();
-      setTimeout(() => {
-        setIsOnboarded(false);
-      }, 1000);
+      const response = await fetch('/api/transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fromAddress: onboardingData.externalWallet.address,
+          toAddress: onboardingData.embeddedWallet.address,
+          amount: transferAmount,
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        alert(`Transfer initiated! Please sign the transaction in your wallet.`);
+        // Refresh onboarding data after a delay
+        setTimeout(() => {
+          setIsOnboarded(false);
+        }, 3000);
+      } else {
+        alert('Transfer failed: ' + data.error);
+      }
     } catch (error) {
-      console.error('Wallet creation failed:', error);
+      console.error('Transfer failed:', error);
+      alert('Transfer failed: ' + error);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handlePlaceOrder = async () => {
-    if (!user?.wallet?.address) return;
+    if (!onboardingData?.embeddedWallet?.address) return;
     
-    // Check if wallet can trade
-    if (onboardingData && !onboardingData.canTrade) {
+    if (!onboardingData.canTrade) {
       alert('Please fund your wallet before trading!');
       return;
     }
@@ -168,7 +211,7 @@ export default function TradingApp() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          walletId: user.wallet.address,
+          walletId: onboardingData.embeddedWallet.address,
           ...orderForm
         }),
       });
@@ -240,58 +283,140 @@ export default function TradingApp() {
             </button>
           </div>
           
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <p><strong>Wallet:</strong> {user?.wallet?.address || 'No wallet'}</p>
-              {user?.wallet?.address && (
-                <button
-                  onClick={() => copyToClipboard(user.wallet!.address)}
-                  className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-1 px-2 rounded text-xs"
-                >
-                  Copy
-                </button>
+          {onboardingData && (
+            <div className="space-y-3">
+              {/* Embedded Trading Wallet */}
+              <div className="bg-white p-3 rounded">
+                <h3 className="font-semibold text-sm mb-2">🔐 Trading Wallet (Privy Embedded)</h3>
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs font-mono truncate flex-1">
+                    {onboardingData.embeddedWallet.address}
+                  </p>
+                  <button
+                    onClick={() => copyToClipboard(onboardingData.embeddedWallet.address)}
+                    className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-1 px-2 rounded text-xs ml-2"
+                  >
+                    Copy
+                  </button>
+                </div>
+                <p className="text-xs">
+                  ETH Balance: {onboardingData.embeddedWallet.ethBalance} ETH
+                </p>
+                {onboardingData.embeddedWallet.hyperliquid.exists && (
+                  <p className="text-xs text-green-600">
+                    ✓ Hyperliquid: ${onboardingData.embeddedWallet.hyperliquid.accountValue}
+                  </p>
+                )}
+              </div>
+
+              {/* External Wallet Info */}
+              {onboardingData.externalWallet && (
+                <div className="bg-white p-3 rounded">
+                  <h3 className="font-semibold text-sm mb-2">💳 Connected Wallet (MetaMask/External)</h3>
+                  <p className="text-xs font-mono truncate mb-1">
+                    {onboardingData.externalWallet.address}
+                  </p>
+                  {onboardingData.externalWallet.hyperliquid.exists ? (
+                    <p className="text-xs text-blue-600">
+                      ✓ Hyperliquid Balance: ${onboardingData.externalWallet.hyperliquid.accountValue}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-500">
+                      No Hyperliquid account found
+                    </p>
+                  )}
+                </div>
               )}
+              
+              <p className="text-sm">
+                <strong>Status:</strong> {isOnboarded ? 'Onboarded ✅' : 'Not onboarded'}
+              </p>
             </div>
-            
-            <p><strong>Status:</strong> {isOnboarded ? 'Onboarded ✅' : 'Not onboarded'}</p>
-            
-            {!user?.wallet && (
-              <button 
-                onClick={handleCreateWallet}
-                disabled={loading}
-                className="mt-2 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
-              >
-                {loading ? 'Creating...' : 'Create Wallet'}
-              </button>
-            )}
-          </div>
+          )}
         </div>
 
+        {/* Transfer from External Wallet Option */}
+        {isOnboarded && onboardingData && onboardingData.funding.canTransferFromExternal && (
+          <div className="mb-6 p-4 bg-blue-50 border-2 border-blue-400 rounded">
+            <h2 className="text-xl font-semibold text-blue-800 mb-3">💰 Transfer from Your Wallet</h2>
+            <div className="bg-white p-4 rounded text-amber-950">
+              <p className="text-sm mb-3">
+                Great news! Your connected wallet has{' '}
+                <strong className="text-green-600">
+                  ${onboardingData.externalWallet?.hyperliquid.accountValue}
+                </strong>{' '}
+                on Hyperliquid.
+              </p>
+              
+              <div className="bg-blue-100 p-3 rounded mb-3 text-xs">
+                <p className="font-semibold mb-2">Transfer funds to start trading:</p>
+                <p className="mb-1">From: {onboardingData.externalWallet?.address.slice(0, 10)}...{onboardingData.externalWallet?.address.slice(-8)}</p>
+                <p>To: {onboardingData.embeddedWallet.address.slice(0, 10)}...{onboardingData.embeddedWallet.address.slice(-8)}</p>
+              </div>
+
+              <div className="mb-3">
+                <label className="block text-sm font-medium mb-1">Amount (USDC)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="1"
+                  value={transferAmount}
+                  onChange={(e) => setTransferAmount(e.target.value)}
+                  className="w-full p-2 border rounded"
+                  placeholder="10.00"
+                />
+                <p className="text-xs text-gray-600 mt-1">
+                  Minimum: $1 | Available: ${onboardingData.externalWallet?.hyperliquid.accountValue}
+                </p>
+              </div>
+
+              <button
+                onClick={handleTransferFromExternal}
+                disabled={loading || parseFloat(transferAmount) < 1}
+                className="w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 mb-2"
+              >
+                {loading ? 'Processing...' : `Transfer $${transferAmount} USDC`}
+              </button>
+
+              <div className="bg-yellow-100 p-2 rounded text-xs">
+                <p className="font-semibold mb-1">Note:</p>
+                <ul className="list-disc list-inside space-y-1">
+                  <li>This will initiate a transfer on Hyperliquid</li>
+                  <li>You'll need to approve the transaction in your wallet</li>
+                  <li>Transfer typically takes 1-2 minutes</li>
+                  <li>After transfer, click "Check Balance" below</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Funding Status - Show if wallet needs funding */}
-        {isOnboarded && onboardingData && !onboardingData.canTrade && (
+        {/* Funding Status - Show if wallet needs funding and can't transfer */}
+        {isOnboarded && onboardingData && !onboardingData.canTrade && !onboardingData.funding.canTransferFromExternal && (
           <div className="mb-6 p-4 bg-red-50 border-2 border-red-400 rounded">
             <h2 className="text-xl font-semibold text-red-800 mb-3">⚠️ Funding Required</h2>
             
             {/* ETH Balance Status */}
-            {onboardingData.balance.needsDeposit && (
+            {onboardingData.funding.needsEthDeposit && (
               <div className="mb-4 p-3 bg-white rounded text-amber-950">
                 <h3 className="font-semibold text-red-700 mb-2">1. Deposit ETH for Gas Fees</h3>
-                <p className="text-sm mb-2">Current Balance: {onboardingData.balance.eth} ETH</p>
-                <p className="text-sm mb-3">{onboardingData.balance.message}</p>
+                <p className="text-sm mb-2">Current Balance: {onboardingData.embeddedWallet.ethBalance} ETH</p>
+                <p className="text-sm mb-3">Please deposit ETH to your wallet to cover gas fees</p>
                 
                 <div className="bg-gray-100 p-2 rounded mb-2">
-                  <p className="text-xs font-mono break-all">{onboardingData.address}</p>
+                  <p className="text-xs font-mono break-all">{onboardingData.embeddedWallet.address}</p>
                 </div>
                 
                 <div className="flex gap-2">
                   <button
-                    onClick={() => copyToClipboard(onboardingData.address)}
+                    onClick={() => copyToClipboard(onboardingData.embeddedWallet.address)}
                     className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded text-sm"
                   >
                     Copy Address
                   </button>
                   <a
-                    href={`https://basescan.org/address/${onboardingData.address}`}
+                    href={`https://basescan.org/address/${onboardingData.embeddedWallet.address}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-1 px-3 rounded text-sm"
@@ -303,15 +428,15 @@ export default function TradingApp() {
             )}
 
             {/* Hyperliquid Funding Status */}
-            {onboardingData.hyperliquid.needsFunding && (
+            {onboardingData.funding.needsEmbeddedHyperliquidFunding && (
               <div className="mb-4 p-3 bg-white rounded text-amber-950">
                 <h3 className="font-semibold text-red-700 mb-2">
-                  {onboardingData.balance.needsDeposit ? '2. ' : ''}Bridge USDC to Hyperliquid
+                  {onboardingData.funding.needsEthDeposit ? '2. ' : ''}Bridge USDC to Hyperliquid
                 </h3>
                 <p className="text-sm mb-2">
-                  Account Value: ${onboardingData.hyperliquid.accountValue}
+                  Account Value: ${onboardingData.embeddedWallet.hyperliquid.accountValue || '0'}
                 </p>
-                <p className="text-sm mb-3">{onboardingData.hyperliquid.message}</p>
+                <p className="text-sm mb-3">Please bridge USDC to Hyperliquid to start trading</p>
                 
                 <div className="space-y-2">
                   <a
@@ -327,7 +452,7 @@ export default function TradingApp() {
                     <p className="font-semibold mb-1">Instructions:</p>
                     <ol className="list-decimal list-inside space-y-1">
                       <li>Click "Bridge USDC to Hyperliquid" above</li>
-                      <li>Connect your wallet ({onboardingData.address.slice(0, 6)}...{onboardingData.address.slice(-4)})</li>
+                      <li>Connect your wallet ({onboardingData.embeddedWallet.address.slice(0, 6)}...{onboardingData.embeddedWallet.address.slice(-4)})</li>
                       <li>Bridge at least $10 USDC to start trading</li>
                       <li>Wait for confirmation (usually 1-2 minutes)</li>
                       <li>Click "Check Balance" below</li>

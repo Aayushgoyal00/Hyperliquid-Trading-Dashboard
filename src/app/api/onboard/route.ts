@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     }
     
     let wallet;
-    let address: string;
+    let embeddedAddress: string;
     let actualWalletId: string;
     let isNewWallet = false;
 
@@ -52,24 +52,39 @@ export async function POST(request: NextRequest) {
         }
       });
       
-      address = wallet.address;
+      embeddedAddress = wallet.address;
       actualWalletId = wallet.id;
       isNewWallet = true;
-      console.log(`Created new wallet: ${wallet.id} at address: ${address}`);
+      console.log(`Created new wallet: ${wallet.id} at address: ${embeddedAddress}`);
     } else {
       // User has an existing embedded wallet
-      address = embeddedWalletAccount.address;
+      embeddedAddress = embeddedWalletAccount.address;
       actualWalletId = embeddedWalletAccount.id;
       
-      console.log(`Found embedded wallet with ID: ${actualWalletId} at address: ${address}`);
+      console.log(`Found existing embedded wallet with ID: ${actualWalletId} at address: ${embeddedAddress}`);
     }
 
-    // Check wallet balance on Base chain
-    const balance = await provider.getBalance(address);
-    const balanceInEth = ethers.formatEther(balance);
-    console.log(`Wallet balance: ${balanceInEth} ETH`);
+    // Check for external connected wallet (MetaMask, Coinbase, etc.)
+    const externalWalletAccount = user.linkedAccounts.find(account => 
+      account.type === 'wallet' && 
+      'connectorType' in account &&
+      account.connectorType !== 'embedded'
+    ) as any;
 
-// Initialize Hyperliquid client to check account status
+    let externalWalletAddress: string | null = null;
+    let externalWalletHyperliquid: any = null;
+
+    if (externalWalletAccount) {
+      externalWalletAddress = externalWalletAccount.address;
+      console.log(`Found external wallet: ${externalWalletAddress}`);
+    }
+
+    // Check embedded wallet balance on Base chain
+    const embeddedBalance = await provider.getBalance(embeddedAddress);
+    const embeddedBalanceInEth = ethers.formatEther(embeddedBalance);
+    console.log(`Embedded wallet balance: ${embeddedBalanceInEth} ETH`);
+
+    // Initialize Hyperliquid client to check account status
     const transport = new HttpTransport({
       isTestnet: true,
       timeout: 5000,
@@ -80,88 +95,91 @@ export async function POST(request: NextRequest) {
 
     const infoClient = new InfoClient({ transport })
 
-
-    // Check if user exists on Hyperliquid
-    let hyperliquidAccount = null;
-    let needsHyperliquidFunding = false;
+    // Check if embedded wallet exists on Hyperliquid
+    let embeddedHyperliquidAccount = null;
+    let needsEmbeddedHyperliquidFunding = false;
     
     try {
       const userState = await infoClient.clearinghouseState({ 
-        user: address as `0x${string}` 
+        user: embeddedAddress as `0x${string}` 
       });
       
-      hyperliquidAccount = {
+      embeddedHyperliquidAccount = {
         exists: true,
         accountValue: userState.marginSummary.accountValue,
         totalRawUsd: userState.marginSummary.totalRawUsd,
         hasPositions: userState.assetPositions.length > 0
       };
 
-      // Check if account needs funding (less than $1)
       const accountValue = parseFloat(userState.marginSummary.accountValue);
-      needsHyperliquidFunding = accountValue < 1;
+      needsEmbeddedHyperliquidFunding = accountValue < 1;
       
-      console.log(`Hyperliquid account value: $${accountValue}`);
-      } catch (error) {
-      console.log('User not found on Hyperliquid');
-      hyperliquidAccount = {
+      console.log(`Embedded wallet Hyperliquid account value: $${accountValue}`);
+    } catch (error) {
+      console.log('Embedded wallet not found on Hyperliquid');
+      embeddedHyperliquidAccount = {
         exists: false
       };
-      needsHyperliquidFunding = true;
+      needsEmbeddedHyperliquidFunding = true;
+    }
+
+    // Check external wallet on Hyperliquid if it exists
+    if (externalWalletAddress) {
+      try {
+        const externalUserState = await infoClient.clearinghouseState({ 
+          user: externalWalletAddress as `0x${string}` 
+        });
+        
+        externalWalletHyperliquid = {
+          exists: true,
+          accountValue: externalUserState.marginSummary.accountValue,
+          totalRawUsd: externalUserState.marginSummary.totalRawUsd,
+          hasPositions: externalUserState.assetPositions.length > 0
+        };
+
+        const externalAccountValue = parseFloat(externalUserState.marginSummary.accountValue);
+        console.log(`External wallet Hyperliquid account value: $${externalAccountValue}`);
+      } catch (error) {
+        console.log('External wallet not found on Hyperliquid');
+        externalWalletHyperliquid = {
+          exists: false
+        };
+      }
     }
 
     // Determine if user needs to deposit
-    const needsDeposit = parseFloat(balanceInEth) < 0.0001 || needsHyperliquidFunding;
+    const needsEthDeposit = parseFloat(embeddedBalanceInEth) < 0.0001;
+    const canTransferFromExternal = externalWalletHyperliquid && 
+                                     externalWalletHyperliquid.exists && 
+                                     parseFloat(externalWalletHyperliquid.accountValue) >= 10;
 
-    // Check Hyperliquid account
-    // const preTransferCheck = await infoClient.preTransferCheck({
-    //   user: address as `0x${string}`,
-    //   source: address as `0x${string}`,
-    // });
-
-    // let hyperliquidAccount = true;
-    // let fundingMessage = '';
-
-    // if (!preTransferCheck.userExists) {
-    //   // User needs to fund their account
-    //   hyperliquidAccount = false;
-    //   fundingMessage = 'Account needs funding. Please bridge USDC to Hyperliquid.';
-      
-      // Note: In a real implementation, you might trigger automated funding here
-      // const fundTx = await signer.sendTransaction({
-      //   to: 'hyperliquid-bridge-address',
-      //   value: ethers.parseEther('10'),
-      // });
-      // await fundTx.wait();
-    // }
-
-    // Store session data (in production, use Redis or database)
-    // For demo purposes, we'll just return the data
-    
     return NextResponse.json({
       success: true,
-      address,
-      walletId: actualWalletId,
-      isNewWallet,
-      balance: {
-        eth: balanceInEth,
-        needsDeposit: parseFloat(balanceInEth) < 0.0001,
-        message: parseFloat(balanceInEth) < 0.0001 
-          ? 'Please deposit ETH to your wallet to cover gas fees'
-          : 'Wallet has sufficient ETH for gas'
+      embeddedWallet: {
+        address: embeddedAddress,
+        walletId: actualWalletId,
+        isNew: isNewWallet,
+        ethBalance: embeddedBalanceInEth,
+        hyperliquid: embeddedHyperliquidAccount
       },
-      hyperliquid: {
-        exists: hyperliquidAccount?.exists || false,
-        accountValue: hyperliquidAccount?.accountValue || '0',
-        needsFunding: needsHyperliquidFunding,
-        message: needsHyperliquidFunding
-          ? 'Please bridge USDC to Hyperliquid to start trading'
-          : 'Hyperliquid account is funded and ready'
+      externalWallet: externalWalletAddress ? {
+        address: externalWalletAddress,
+        hyperliquid: externalWalletHyperliquid
+      } : null,
+      funding: {
+        needsEthDeposit,
+        needsEmbeddedHyperliquidFunding,
+        canTransferFromExternal,
+        message: canTransferFromExternal 
+          ? `Your connected wallet has $${externalWalletHyperliquid.accountValue} on Hyperliquid. Transfer some to your trading wallet.`
+          : needsEmbeddedHyperliquidFunding
+          ? 'Please fund your trading wallet to start trading'
+          : 'Wallet is ready for trading'
       },
-      canTrade: !needsDeposit,
-      message: needsDeposit 
-        ? 'Please fund your wallet to continue' 
-        : 'Wallet ready for trading'
+      canTrade: !needsEthDeposit && !needsEmbeddedHyperliquidFunding,
+      message: !needsEthDeposit && !needsEmbeddedHyperliquidFunding
+        ? 'Wallet ready for trading'
+        : 'Please fund your wallet to continue'
     });
   } catch (error) {
     console.error('Onboarding error:', error);
