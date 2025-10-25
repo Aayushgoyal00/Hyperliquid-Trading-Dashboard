@@ -1,7 +1,9 @@
 'use client';
 
-import { usePrivy } from '@privy-io/react-auth';
+import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useEffect, useState, useCallback } from 'react';
+import { ethers } from 'ethers';
+import { HttpTransport, ExchangeClient } from '@nktkas/hyperliquid';
 
 interface Asset {
   name: string;
@@ -61,6 +63,7 @@ interface OnboardingData {
 
 export default function TradingApp() {
   const { ready, authenticated, user, login, logout } = usePrivy();
+  const { wallets } = useWallets();
   const [isOnboarded, setIsOnboarded] = useState(false);
   const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(null);
   const [marketData, setMarketData] = useState<MarketData | null>(null);
@@ -196,31 +199,74 @@ export default function TradingApp() {
     
     setLoading(true);
     try {
-      const response = await fetch('/api/transfer', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fromWalletId: onboardingData.embeddedWallet.walletId,
-          toAddress: recipientAddress,
-          amount: amount.toString(),
-        }),
+      // Find the embedded wallet from Privy wallets
+      const embeddedWallet = wallets.find(
+        wallet => wallet.walletClientType === 'privy' && 
+                  wallet.address.toLowerCase() === onboardingData.embeddedWallet.address.toLowerCase()
+      );
+
+      if (!embeddedWallet) {
+        throw new Error('Embedded wallet not found. Please refresh and try again.');
+      }
+
+      // Get the Ethereum provider from the embedded wallet
+      const provider = await embeddedWallet.getEthereumProvider();
+      if (!provider) {
+        throw new Error('Failed to get wallet provider');
+      }
+
+      // Create ethers provider and signer
+      const ethersProvider = new ethers.BrowserProvider(provider);
+      const signer = await ethersProvider.getSigner();
+
+      // Verify the signer address
+      const signerAddress = await signer.getAddress();
+      console.log(`Using embedded wallet: ${signerAddress}`);
+
+      // Initialize Hyperliquid transport for TESTNET
+      // Important: is Testnet must be true for Hyperliquid testnet operations
+      const transport = new HttpTransport({
+        isTestnet: true, // <-- Critical: This sets hyperliquidChain to "Testnet"
+        timeout: 10000,
+        fetchOptions: {
+          keepalive: false
+        }
       });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        alert(`✅ Transfer successful! Transferred $${amount} USDC\n\nTo: ${recipientAddress}\nNew Balance: $${data.balances.sender.after}`);
+
+      console.log('✅ Using Hyperliquid TESTNET transport');
+
+      // Create exchange client with the signer
+      // CRITICAL: Must explicitly pass isTestnet: true to ExchangeClient
+      // This sets hyperliquidChain to "Testnet" in EIP712 signature message
+      const exchangeClient = new ExchangeClient({
+        transport,
+        wallet: signer as any,
+        isTestnet: true  // <-- CRITICAL FIX: ExchangeClient needs this explicitly!
+      });
+
+      console.log(`🔄 Transferring $${amount} USDC from ${signerAddress} to ${recipientAddress} on TESTNET...`);
+
+      // Perform the transfer
+      const transferResponse = await exchangeClient.usdSend({
+        destination: recipientAddress as `0x${string}`,
+        amount: amount.toString()
+      });
+
+      console.log('Transfer response:', transferResponse);
+
+      if (transferResponse.status === 'ok') {
+        alert(`✅ Transfer successful! Transferred $${amount} USDC\n\nTo: ${recipientAddress}`);
         // Clear recipient address and refresh onboarding data
         setRecipientAddress('');
         setTimeout(() => {
           setIsOnboarded(false);
         }, 2000);
       } else {
-        alert('❌ Transfer failed: ' + data.error);
+        throw new Error(JSON.stringify(transferResponse.response) || 'Transfer failed');
       }
     } catch (error) {
       console.error('Transfer failed:', error);
-      alert('❌ Transfer failed: ' + error);
+      alert('❌ Transfer failed: ' + (error instanceof Error ? error.message : String(error)));
     } finally {
       setLoading(false);
     }
