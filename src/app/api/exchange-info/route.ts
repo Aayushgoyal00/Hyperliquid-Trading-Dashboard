@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { HttpTransport,InfoClient } from '@nktkas/hyperliquid';
+import { getIsTestnet } from '@/utils/hyperliquid-config';
 
 
 export async function GET(request: NextRequest) {
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
 
     // Initialize Hyperliquid clients
     const transport = new HttpTransport({
-      isTestnet:true,
+      isTestnet: getIsTestnet(),
       timeout:5000,
       fetchOptions:{
         keepalive:false

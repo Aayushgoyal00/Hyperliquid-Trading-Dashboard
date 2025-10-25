@@ -4,6 +4,7 @@ import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useEffect, useState, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { HttpTransport, ExchangeClient } from '@nktkas/hyperliquid';
+import { getIsTestnet } from '@/utils/hyperliquid-config';
 
 interface Asset {
   name: string;
@@ -223,28 +224,23 @@ export default function TradingApp() {
       const signerAddress = await signer.getAddress();
       console.log(`Using embedded wallet: ${signerAddress}`);
 
-      // Initialize Hyperliquid transport for TESTNET
-      // Important: is Testnet must be true for Hyperliquid testnet operations
+      // Initialize Hyperliquid transport
+      const IS_TESTNET = getIsTestnet();
       const transport = new HttpTransport({
-        isTestnet: true, // <-- Critical: This sets hyperliquidChain to "Testnet"
+        isTestnet: IS_TESTNET,
         timeout: 10000,
         fetchOptions: {
           keepalive: false
         }
       });
 
-      console.log('✅ Using Hyperliquid TESTNET transport');
-
-      // Create exchange client with the signer
-      // CRITICAL: Must explicitly pass isTestnet: true to ExchangeClient
-      // This sets hyperliquidChain to "Testnet" in EIP712 signature message
       const exchangeClient = new ExchangeClient({
         transport,
         wallet: signer as any,
-        isTestnet: true  // <-- CRITICAL FIX: ExchangeClient needs this explicitly!
+        isTestnet: IS_TESTNET  // <-- CRITICAL: ExchangeClient needs this explicitly!
       });
 
-      console.log(`🔄 Transferring $${amount} USDC from ${signerAddress} to ${recipientAddress} on TESTNET...`);
+      console.log(`🔄 Transferring $${amount} USDC from ${signerAddress} to ${recipientAddress} on ${IS_TESTNET ? 'TESTNET' : 'MAINNET'}...`);
 
       // Perform the transfer
       const transferResponse = await exchangeClient.usdSend({

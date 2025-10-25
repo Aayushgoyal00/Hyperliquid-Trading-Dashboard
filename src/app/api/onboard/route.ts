@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { HttpTransport, InfoClient } from '@nktkas/hyperliquid';
 import { privyClient } from '@/utils/privy-signature';
+import { getIsTestnet } from '@/utils/hyperliquid-config';
 
 export async function POST(request: NextRequest) {
   try {
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
 
     // Initialize Hyperliquid client to check account status
     const transport = new HttpTransport({
-      isTestnet: true,
+      isTestnet: getIsTestnet(),
       timeout: 5000,
       fetchOptions: {
         keepalive: false

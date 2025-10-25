@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSigner } from '@/utils/privy-signature';
 import { HttpTransport, ExchangeClient, InfoClient } from '@nktkas/hyperliquid';
+import { getIsTestnet } from '@/utils/hyperliquid-config';
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
 
     // Initialize Hyperliquid clients
     const transport = new HttpTransport({
-      isTestnet: true,
+      isTestnet: getIsTestnet(),
       timeout: 10000,
       fetchOptions: {
         keepalive: false
