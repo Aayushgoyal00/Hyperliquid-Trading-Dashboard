@@ -27,6 +27,10 @@ export interface OnboardingData {
       exists: boolean;
       accountValue?: string;
       totalRawUsd?: string;
+      totalMarginUsed?: string;
+      totalNtlPos?: string;
+      spotBalance?: string;
+      perpsBalance?: string;
       hasPositions?: boolean;
     };
   };
@@ -36,6 +40,10 @@ export interface OnboardingData {
       exists: boolean;
       accountValue?: string;
       totalRawUsd?: string;
+      totalMarginUsed?: string;
+      totalNtlPos?: string;
+      spotBalance?: string;
+      perpsBalance?: string;
       hasPositions?: boolean;
     };
   } | null;

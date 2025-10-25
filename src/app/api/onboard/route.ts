@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { HttpTransport, InfoClient } from '@nktkas/hyperliquid';
 import { privyClient } from '@/utils/privy-signature';
-import { getIsTestnet } from '@/utils/hyperliquid-config';
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,7 +14,6 @@ export async function POST(request: NextRequest) {
     
     console.log(`Onboarding user ${walletId}`);
     const users = await privyClient.getUsers();
-    // console.log(`Users: ${JSON.stringify(users, null, 2)}`);
     
     // Find the specific user by ID
     const user = users.find(u => u.id === walletId);
@@ -38,7 +35,7 @@ export async function POST(request: NextRequest) {
       'connectorType' in account &&
       account.connectorType === 'embedded' &&
       account.id !== null
-    ) as any; // Type assertion to handle the union type
+    ) as any;
     
     if (!embeddedWalletAccount) {
       console.log('User does not have an embedded wallet, creating one...');
@@ -59,8 +56,6 @@ export async function POST(request: NextRequest) {
       // User has an existing embedded wallet
       embeddedAddress = embeddedWalletAccount.address;
       actualWalletId = embeddedWalletAccount.id;
-      
-      // console.log(`Found existing embedded wallet with ID: ${actualWalletId} at address: ${embeddedAddress}`);
     }
 
     // Check for external connected wallet (MetaMask, Coinbase, etc.)
@@ -71,107 +66,23 @@ export async function POST(request: NextRequest) {
     ) as any;
 
     let externalWalletAddress: string | null = null;
-    let externalWalletHyperliquid: any = null;
 
     if (externalWalletAccount) {
       externalWalletAddress = externalWalletAccount.address;
-      // console.log(`Found external wallet: ${externalWalletAddress}`);
     }
 
-    // Initialize Hyperliquid client to check account status
-    const transport = new HttpTransport({
-      isTestnet: getIsTestnet(),
-      timeout: 5000,
-      fetchOptions: {
-        keepalive: false
-      }
-    });
-
-    const infoClient = new InfoClient({ transport })
-
-    // Check if embedded wallet exists on Hyperliquid
-    let embeddedHyperliquidAccount = null;
-    let needsEmbeddedHyperliquidFunding = false;
-    
-    try {
-      const userState = await infoClient.clearinghouseState({ 
-        user: embeddedAddress as `0x${string}` 
-      });
-      
-      embeddedHyperliquidAccount = {
-        exists: true,
-        accountValue: userState.marginSummary.accountValue,
-        totalRawUsd: userState.marginSummary.totalRawUsd,
-        hasPositions: userState.assetPositions.length > 0
-      };
-
-      const accountValue = parseFloat(userState.marginSummary.accountValue);
-      needsEmbeddedHyperliquidFunding = accountValue < 10;
-      
-      console.log(`Embedded wallet Hyperliquid account value: $${accountValue}`);
-      
-    } catch (error) {
-      console.log('Embedded wallet not found on Hyperliquid');
-      embeddedHyperliquidAccount = {
-        exists: false
-      };
-      needsEmbeddedHyperliquidFunding = true;
-    }
-
-    // Check external wallet on Hyperliquid if it exists
-    if (externalWalletAddress) {
-      try {
-        const externalUserState = await infoClient.clearinghouseState({ 
-          user: externalWalletAddress as `0x${string}` 
-        });
-        
-        externalWalletHyperliquid = {
-          exists: true,
-          accountValue: externalUserState.marginSummary.accountValue,
-          totalRawUsd: externalUserState.marginSummary.totalRawUsd,
-          hasPositions: externalUserState.assetPositions.length > 0
-        };
-
-        const externalAccountValue = parseFloat(externalUserState.marginSummary.accountValue);
-        console.log(`External wallet Hyperliquid account value: $${externalAccountValue}`);
-      } catch (error) {
-        console.log('External wallet not found on Hyperliquid');
-        externalWalletHyperliquid = {
-          exists: false
-        };
-      }
-    }
-
-    // Determine if user can transfer from external wallet
-    const canTransferFromExternal = externalWalletHyperliquid && 
-                                     externalWalletHyperliquid.exists && 
-                                     parseFloat(externalWalletHyperliquid.accountValue) >= 10;
-
+    // Return wallet addresses - balance checking will be done on frontend
     return NextResponse.json({
       success: true,
       embeddedWallet: {
         address: embeddedAddress,
         walletId: actualWalletId,
-        isNew: isNewWallet,
-        hyperliquid: embeddedHyperliquidAccount
+        isNew: isNewWallet
       },
       externalWallet: externalWalletAddress ? {
-        address: externalWalletAddress,
-        hyperliquid: externalWalletHyperliquid
+        address: externalWalletAddress
       } : null,
-      funding: {
-        needsEmbeddedHyperliquidFunding,
-        canTransferFromExternal,
-        message: canTransferFromExternal 
-          ? `Your connected wallet has $${externalWalletHyperliquid.accountValue} on Hyperliquid. Transfer some to your trading wallet.`
-          : needsEmbeddedHyperliquidFunding
-          ? 'Please fund your trading wallet to start trading'
-          : 'Wallet is ready for trading'
-      },
-      canTrade: !needsEmbeddedHyperliquidFunding,
-      message: !needsEmbeddedHyperliquidFunding
-        ? 'Wallet ready for trading'
-        : 'Please fund your wallet to continue'
+      message: 'Wallet created successfully. Please check balances on frontend.'
     });
   } catch (error) {
     console.error('Onboarding error:', error);

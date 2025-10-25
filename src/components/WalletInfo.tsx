@@ -40,9 +40,32 @@ export default function WalletInfo({ onboardingData, isOnboarded, onLogout }: Wa
             </button>
           </div>
           {onboardingData.embeddedWallet.hyperliquid.exists && (
-            <p className="text-xs text-green-600">
-              ✓ Hyperliquid: ${onboardingData.embeddedWallet.hyperliquid.accountValue}
-            </p>
+            <div className="mt-2 space-y-1">
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="bg-green-50 p-2 rounded">
+                  <p className="text-gray-600 font-medium">💵 Spot Balance</p>
+                  <p className="text-green-700 font-bold">
+                    ${parseFloat(onboardingData.embeddedWallet.hyperliquid.spotBalance || '0').toFixed(2)}
+                  </p>
+                </div>
+                <div className="bg-blue-50 p-2 rounded">
+                  <p className="text-gray-600 font-medium">📊 Perps Balance</p>
+                  <p className="text-blue-700 font-bold">
+                    ${parseFloat(onboardingData.embeddedWallet.hyperliquid.perpsBalance || '0').toFixed(2)}
+                  </p>
+                </div>
+              </div>
+              <div className="bg-purple-50 p-2 rounded text-xs">
+                <p className="text-gray-600 font-medium">💰 Total Account Value</p>
+                <p className="text-purple-700 font-bold text-sm">
+                  ${parseFloat(onboardingData.embeddedWallet.hyperliquid.accountValue || '0').toFixed(2)}
+                </p>
+                <p className="text-gray-500 text-xs mt-1">
+                  Margin Used: ${parseFloat(onboardingData.embeddedWallet.hyperliquid.totalMarginUsed || '0').toFixed(2)} | 
+                  Position Value: ${parseFloat(onboardingData.embeddedWallet.hyperliquid.totalNtlPos || '0').toFixed(2)}
+                </p>
+              </div>
+            </div>
           )}
         </div>
 
@@ -54,9 +77,32 @@ export default function WalletInfo({ onboardingData, isOnboarded, onLogout }: Wa
               {onboardingData.externalWallet.address}
             </p>
             {onboardingData.externalWallet.hyperliquid.exists ? (
-              <p className="text-xs text-blue-600">
-                ✓ Hyperliquid Balance: ${onboardingData.externalWallet.hyperliquid.accountValue}
-              </p>
+              <div className="mt-2 space-y-1">
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="bg-green-50 p-2 rounded">
+                    <p className="text-gray-600 font-medium">💵 Spot Balance</p>
+                    <p className="text-green-700 font-bold">
+                      ${parseFloat(onboardingData.externalWallet.hyperliquid.spotBalance || '0').toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="bg-blue-50 p-2 rounded">
+                    <p className="text-gray-600 font-medium">📊 Perps Balance</p>
+                    <p className="text-blue-700 font-bold">
+                      ${parseFloat(onboardingData.externalWallet.hyperliquid.perpsBalance || '0').toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+                <div className="bg-purple-50 p-2 rounded text-xs">
+                  <p className="text-gray-600 font-medium">💰 Total Account Value</p>
+                  <p className="text-purple-700 font-bold text-sm">
+                    ${parseFloat(onboardingData.externalWallet.hyperliquid.accountValue || '0').toFixed(2)}
+                  </p>
+                  <p className="text-gray-500 text-xs mt-1">
+                    Margin Used: ${parseFloat(onboardingData.externalWallet.hyperliquid.totalMarginUsed || '0').toFixed(2)} | 
+                    Position Value: ${parseFloat(onboardingData.externalWallet.hyperliquid.totalNtlPos || '0').toFixed(2)}
+                  </p>
+                </div>
+              </div>
             ) : (
               <p className="text-xs text-gray-500">
                 No Hyperliquid account found

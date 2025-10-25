@@ -8,6 +8,8 @@ import WithdrawForm from './WithdrawForm';
 import FundingStatus from './FundingStatus';
 import MarketData from './MarketData';
 import TradingForm from './TradingForm';
+import SpotPerpsTransfer from './SpotPerpsTransfer';
+import { hyperliquidService } from '@/services/hyperliquid';
 
 export default function TradingApp() {
   const { ready, authenticated, user, login, logout } = usePrivy();
@@ -18,23 +20,9 @@ export default function TradingApp() {
 
   const fetchMarketData = useCallback(async () => {
     try {
-      const response = await fetch('/api/exchange-info', {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setMarketData(data);
-        console.log('Market data fetched:', data);
-      } else {
-        console.error('API returned error:', data.error);
-      }
+      const data = await hyperliquidService.getMarketData();
+      setMarketData(data);
+      console.log('Market data fetched:', data);
     } catch (error) {
       console.error('Failed to fetch market data:', error);
     }
@@ -45,6 +33,7 @@ export default function TradingApp() {
     
     setLoading(true);
     try {
+      // First, call backend to create/get wallet addresses
       const response = await fetch('/api/onboard', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -56,8 +45,109 @@ export default function TradingApp() {
       const data = await response.json();
       
       if (data.success) {
+        // Now fetch balances from frontend using Hyperliquid service
+        const embeddedAddress = data.embeddedWallet.address;
+        const externalAddress = data.externalWallet?.address;
+
+        // Fetch embedded wallet balances
+        let embeddedPerpsBalance = null;
+        let embeddedSpotBalance = null;
+        let needsEmbeddedHyperliquidFunding = false;
+
+        try {
+          embeddedPerpsBalance = await hyperliquidService.getPerpsBalance(embeddedAddress);
+          embeddedSpotBalance = await hyperliquidService.getSpotBalance(embeddedAddress);
+          
+          const accountValue = parseFloat(embeddedPerpsBalance.marginSummary.accountValue);
+          needsEmbeddedHyperliquidFunding = accountValue < 10;
+          
+          console.log(`Embedded wallet Hyperliquid account value: $${accountValue}`);
+        } catch (error) {
+          console.log('Embedded wallet not found on Hyperliquid');
+          needsEmbeddedHyperliquidFunding = true;
+        }
+
+        // Fetch external wallet balances if exists
+        let externalPerpsBalance = null;
+        let externalSpotBalance = null;
+
+        if (externalAddress) {
+          try {
+            externalPerpsBalance = await hyperliquidService.getPerpsBalance(externalAddress);
+            externalSpotBalance = await hyperliquidService.getSpotBalance(externalAddress);
+            
+            const externalAccountValue = parseFloat(externalPerpsBalance.marginSummary.accountValue);
+            console.log(`External wallet Hyperliquid account value: $${externalAccountValue}`);
+          } catch (error) {
+            console.log('External wallet not found on Hyperliquid');
+          }
+        }
+
+        // Calculate spot balances
+        const spotBalance = embeddedSpotBalance?.balances.reduce((total: number, balance: any) => {
+          return total + parseFloat(balance.total);
+        }, 0) || 0;
+
+        const externalSpotBalanceTotal = externalSpotBalance?.balances.reduce((total: number, balance: any) => {
+          return total + parseFloat(balance.total);
+        }, 0) || 0;
+
+        // Determine if user can transfer from external wallet
+        const canTransferFromExternal = externalPerpsBalance && 
+                                        parseFloat(externalPerpsBalance.marginSummary.accountValue) >= 10;
+
+        // Build enhanced onboarding data
+        const enhancedData: OnboardingData = {
+          success: true,
+          embeddedWallet: {
+            address: embeddedAddress,
+            walletId: data.embeddedWallet.walletId,
+            isNew: data.embeddedWallet.isNew,
+            hyperliquid: embeddedPerpsBalance ? {
+              exists: true,
+              accountValue: embeddedPerpsBalance.marginSummary.accountValue,
+              totalRawUsd: embeddedPerpsBalance.marginSummary.totalRawUsd,
+              totalMarginUsed: embeddedPerpsBalance.marginSummary.totalMarginUsed,
+              totalNtlPos: embeddedPerpsBalance.marginSummary.totalNtlPos,
+              spotBalance: spotBalance.toString(),
+              perpsBalance: embeddedPerpsBalance.marginSummary.totalRawUsd,
+              hasPositions: embeddedPerpsBalance.assetPositions.length > 0
+            } : {
+              exists: false
+            }
+          },
+          externalWallet: externalAddress ? {
+            address: externalAddress,
+            hyperliquid: externalPerpsBalance ? {
+              exists: true,
+              accountValue: externalPerpsBalance.marginSummary.accountValue,
+              totalRawUsd: externalPerpsBalance.marginSummary.totalRawUsd,
+              totalMarginUsed: externalPerpsBalance.marginSummary.totalMarginUsed,
+              totalNtlPos: externalPerpsBalance.marginSummary.totalNtlPos,
+              spotBalance: externalSpotBalanceTotal.toString(),
+              perpsBalance: externalPerpsBalance.marginSummary.totalRawUsd,
+              hasPositions: externalPerpsBalance.assetPositions.length > 0
+            } : {
+              exists: false
+            }
+          } : null,
+          funding: {
+            needsEmbeddedHyperliquidFunding,
+            canTransferFromExternal: !!canTransferFromExternal,
+            message: canTransferFromExternal 
+              ? `Your connected wallet has $${externalPerpsBalance?.marginSummary.accountValue} on Hyperliquid. Transfer some to your trading wallet.`
+              : needsEmbeddedHyperliquidFunding
+              ? 'Please fund your trading wallet to start trading'
+              : 'Wallet is ready for trading'
+          },
+          canTrade: !needsEmbeddedHyperliquidFunding,
+          message: !needsEmbeddedHyperliquidFunding
+            ? 'Wallet ready for trading'
+            : 'Please fund your wallet to continue'
+        };
+
         setIsOnboarded(true);
-        setOnboardingData(data);
+        setOnboardingData(enhancedData);
       }
     } catch (error) {
       console.error('Onboarding failed:', error);
@@ -72,6 +162,10 @@ export default function TradingApp() {
 
   const handleWithdrawSuccess = useCallback(() => {
     setIsOnboarded(false);
+  }, []);
+
+  const handleTransferSuccess = useCallback(() => {
+    setIsOnboarded(false); // Trigger re-onboarding to refresh balances
   }, []);
 
   const handleOrderSuccess = useCallback(() => {
@@ -99,10 +193,10 @@ export default function TradingApp() {
   }, [authenticated, user, isOnboarded, handleOnboard]);
 
   useEffect(() => {
-    if (onboardingData?.canTrade && !marketData) {
+    if (isOnboarded && !marketData) {
       fetchMarketData();
     }
-  }, [onboardingData?.canTrade, marketData, fetchMarketData]);
+  }, [isOnboarded, marketData, fetchMarketData]);
 
   if (!ready) {
     return (
@@ -144,6 +238,14 @@ export default function TradingApp() {
           <WithdrawForm 
             onboardingData={onboardingData}
             onWithdrawSuccess={handleWithdrawSuccess}
+          />
+        )}
+
+        {/* Spot-Perps Transfer - Show if wallet is funded */}
+        {isOnboarded && onboardingData?.canTrade && (
+          <SpotPerpsTransfer 
+            onboardingData={onboardingData}
+            onTransferSuccess={handleTransferSuccess}
           />
         )}
 
