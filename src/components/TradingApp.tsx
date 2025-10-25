@@ -9,19 +9,13 @@ import { getIsTestnet } from '@/utils/hyperliquid-config';
 interface Asset {
   name: string;
   szDecimals: number;
+  markPx?: string;
   [key: string]: unknown;
 }
 
 interface MarketData {
   success: boolean;
   assets: Asset[];
-  btc: {
-    markPx: string;
-  };
-  userState: {
-    marginSummary: any;
-    assetPositions: any;
-  } | null;
 }
 
 interface OrderData {
@@ -62,6 +56,54 @@ interface OnboardingData {
   message: string;
 }
 
+/**
+ * Parse blockchain/wallet errors into user-friendly messages
+ */
+function parseErrorMessage(error: unknown, defaultMessage: string): string {
+  if (!(error instanceof Error)) {
+    return defaultMessage;
+  }
+  
+  const errorStr = error.message.toLowerCase();
+  const errorCode = (error as any).code;
+  
+  // User rejected the transaction
+  if (errorStr.includes('user rejected') || 
+      errorStr.includes('user denied') || 
+      errorCode === 'ACTION_REJECTED' || 
+      errorCode === 4001) {
+    return 'You cancelled the transaction. Please try again when ready.';
+  }
+  
+  // Network/connection errors
+  if (errorStr.includes('network') || errorStr.includes('timeout')) {
+    return 'Network error. Please check your connection and try again.';
+  }
+  
+  // Insufficient funds
+  if (errorStr.includes('insufficient')) {
+    return 'Insufficient balance. Please check your wallet balance.';
+  }
+  
+  // Invalid address
+  if (errorStr.includes('invalid address')) {
+    return 'Invalid recipient address. Please check and try again.';
+  }
+  
+  // Invalid parameters
+  if (errorStr.includes('invalid')) {
+    return 'Invalid parameters. Please check your inputs.';
+  }
+  
+  // Try to extract meaningful error message from JSON
+  const match = error.message.match(/"message":\s*"([^"]+)"/);
+  if (match && match[1]) {
+    return match[1];
+  }
+  
+  return defaultMessage;
+}
+
 export default function TradingApp() {
   const { ready, authenticated, user, login, logout } = usePrivy();
   const { wallets } = useWallets();
@@ -80,9 +122,7 @@ export default function TradingApp() {
 
   const fetchMarketData = useCallback(async () => {
     try {
-      if (!onboardingData?.embeddedWallet?.address) return;
-      
-      const response = await fetch(`/api/exchange-info?walletAddress=${encodeURIComponent(onboardingData.embeddedWallet.address)}`, {
+      const response = await fetch('/api/exchange-info', {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -95,14 +135,14 @@ export default function TradingApp() {
       
       if (data.success) {
         setMarketData(data);
-        console.log('Market data fetched:', marketData);
+        console.log('Market data fetched:', data);
       } else {
         console.error('API returned error:', data.error);
       }
     } catch (error) {
       console.error('Failed to fetch market data:', error);
     }
-  }, [onboardingData?.embeddedWallet?.address]);
+  }, []); // No dependencies needed since it's public data
 
   // Auto-login effect
   useEffect(() => {
@@ -135,7 +175,7 @@ export default function TradingApp() {
       
       setLoading(true);
       try {
-        console.log('Starting onboarding for user:', user);
+        // console.log('Starting onboarding for user:', user);
         const response = await fetch('/api/onboard', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -150,7 +190,7 @@ export default function TradingApp() {
         if (data.success) {
           setIsOnboarded(true);
           setOnboardingData(data);
-          console.log("Onboarding data set:", data);
+          // console.log("Onboarding data set:", data);
         }
       } catch (error) {
         console.error('Onboarding failed:', error);
@@ -167,7 +207,7 @@ export default function TradingApp() {
   // Fetch market data when onboarding is complete and user can trade
   useEffect(() => {
     if (onboardingData?.canTrade && !marketData) {
-      console.log('Fetching market data after onboarding...');
+      // console.log('Fetching market data after onboarding...');
       fetchMarketData();
     }
   }, [onboardingData?.canTrade, marketData, fetchMarketData]);
@@ -262,7 +302,8 @@ export default function TradingApp() {
       }
     } catch (error) {
       console.error('Transfer failed:', error);
-      alert('❌ Transfer failed: ' + (error instanceof Error ? error.message : String(error)));
+      const errorMessage = parseErrorMessage(error, 'Transfer failed. Please try again.');
+      alert(`❌ ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -290,14 +331,15 @@ export default function TradingApp() {
       const data = await response.json();
       
       if (data.success) {
-        alert('Order placed successfully!');
+        alert('✅ Order placed successfully!');
         fetchMarketData();
       } else {
-        alert('Order failed: ' + data.error);
+        alert(`❌ Order failed: ${data.error}`);
       }
     } catch (error) {
       console.error('Order failed:', error);
-      alert('Order failed: ' + error);
+      const errorMessage = parseErrorMessage(error, 'Order placement failed. Please try again.');
+      alert(`❌ ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -520,43 +562,30 @@ export default function TradingApp() {
         )}
 
         {/* Market Data - Only show if funded */}
-        {isOnboarded && onboardingData?.canTrade && marketData && (
+        {isOnboarded && marketData && (
           <div className="mb-6 p-4 bg-green-50 rounded text-green-900">
-            <h2 className="text-xl font-semibold mb-3">✅ Market Data</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <h3 className="font-medium">BTC Price</h3>
-                <p className="text-2xl font-bold">${marketData.btc.markPx}</p>
-              </div>
-              <div>
-                <h3 className="font-medium">Available Assets</h3>
-                <div className="max-h-32 overflow-y-auto">
-                  {marketData.assets.map((asset, i) => (
-                    <p key={i} className="text-sm">{asset.name}</p>
-                  ))}
+            <h2 className="text-xl font-semibold mb-3">📊 Market Data - Top Assets</h2>
+            
+            {/* Asset Prices Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
+              {marketData.assets.map((asset, i) => (
+                <div key={i} className="bg-white p-3 rounded shadow-sm">
+                  <p className="text-xs font-semibold text-gray-600 mb-1">{asset.name}</p>
+                  <p className="text-lg font-bold text-green-700">
+                    ${asset.markPx ? parseFloat(asset.markPx).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2
+                    }) : 'N/A'}
+                  </p>
                 </div>
-              </div>
-              <div>
-                <h3 className="font-medium">User Account</h3>
-                {marketData.userState ? (
-                  <div className="text-sm">
-                    <p className="text-green-600">✓ Account exists on Hyperliquid</p>
-                    {marketData.userState.marginSummary && (
-                      <p>Account Value: ${marketData.userState.marginSummary.accountValue || 'N/A'}</p>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-sm">
-                    <p className="text-orange-600">⚠ No account found</p>
-                  </div>
-                )}
-              </div>
+              ))}
             </div>
+            
             <button 
               onClick={fetchMarketData}
-              className="mt-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded text-sm"
+              className="w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded text-sm"
             >
-              Refresh Data
+              🔄 Refresh Market Data
             </button>
           </div>
         )}
