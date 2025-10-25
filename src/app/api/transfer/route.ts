@@ -15,11 +15,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate amount is positive
+    // Validate amount is positive and meets minimum requirement
     const transferAmount = parseFloat(amount);
     if (isNaN(transferAmount) || transferAmount <= 0) {
       return NextResponse.json(
         { error: 'Invalid amount. Must be a positive number.' },
+        { status: 400 }
+      );
+    }
+
+    // Hyperliquid minimum transfer is $10 USDC
+    if (transferAmount < 10) {
+      return NextResponse.json(
+        { error: 'Minimum transfer amount is $10 USDC' },
         { status: 400 }
       );
     }
