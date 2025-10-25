@@ -115,6 +115,7 @@ export async function POST(request: NextRequest) {
       needsEmbeddedHyperliquidFunding = accountValue < 1;
       
       console.log(`Embedded wallet Hyperliquid account value: $${accountValue}`);
+      
     } catch (error) {
       console.log('Embedded wallet not found on Hyperliquid');
       embeddedHyperliquidAccount = {
@@ -149,9 +150,7 @@ export async function POST(request: NextRequest) {
 
     // Determine if user needs to deposit
     const needsEthDeposit = parseFloat(embeddedBalanceInEth) < 0.0001;
-    const canTransferFromExternal = externalWalletHyperliquid && 
-                                     externalWalletHyperliquid.exists && 
-                                     parseFloat(externalWalletHyperliquid.accountValue) >= 10;
+    const canTransferFromExternal = externalWalletHyperliquid && externalWalletHyperliquid.exists && parseFloat(externalWalletHyperliquid.accountValue) >= 10;
 
     return NextResponse.json({
       success: true,

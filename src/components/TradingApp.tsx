@@ -146,7 +146,7 @@ export default function TradingApp() {
         if (data.success) {
           setIsOnboarded(true);
           setOnboardingData(data);
-          
+          console.log("Onboarding data set:", data);
           // Only fetch market data if wallet is ready to trade
           if (data.canTrade) {
             fetchMarketData();
