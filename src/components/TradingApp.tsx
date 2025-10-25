@@ -34,7 +34,6 @@ interface OnboardingData {
     address: string;
     walletId: string;
     isNew: boolean;
-    ethBalance: string;
     hyperliquid: {
       exists: boolean;
       accountValue?: string;
@@ -52,7 +51,6 @@ interface OnboardingData {
     };
   } | null;
   funding: {
-    needsEthDeposit: boolean;
     needsEmbeddedHyperliquidFunding: boolean;
     canTransferFromExternal: boolean;
     message: string;
@@ -92,6 +90,7 @@ export default function TradingApp() {
       
       if (data.success) {
         setMarketData(data);
+        console.log('Market data fetched:', marketData);
       } else {
         console.error('API returned error:', data.error);
       }
@@ -141,16 +140,12 @@ export default function TradingApp() {
         });
         
         const data = await response.json();
-        console.log('Onboarding response:', data);
+        // console.log('Onboarding response:', data);
         
         if (data.success) {
           setIsOnboarded(true);
           setOnboardingData(data);
           console.log("Onboarding data set:", data);
-          // Only fetch market data if wallet is ready to trade
-          if (data.canTrade) {
-            fetchMarketData();
-          }
         }
       } catch (error) {
         console.error('Onboarding failed:', error);
@@ -163,6 +158,14 @@ export default function TradingApp() {
       handleOnboard();
     }
   }, [authenticated, user, isOnboarded, fetchMarketData]);
+
+  // Fetch market data when onboarding is complete and user can trade
+  useEffect(() => {
+    if (onboardingData?.canTrade && !marketData) {
+      console.log('Fetching market data after onboarding...');
+      fetchMarketData();
+    }
+  }, [onboardingData?.canTrade, marketData, fetchMarketData]);
 
   const handleTransferFromExternal = async () => {
     if (!user?.wallet?.address || !transferAmount || !onboardingData?.embeddedWallet?.address || !onboardingData?.externalWallet?.address) return;
@@ -307,9 +310,6 @@ export default function TradingApp() {
                     Copy
                   </button>
                 </div>
-                <p className="text-xs">
-                  ETH Balance: {onboardingData.embeddedWallet.ethBalance} ETH
-                </p>
                 {onboardingData.embeddedWallet.hyperliquid.exists && (
                   <p className="text-xs text-green-600">
                     ✓ Hyperliquid: ${onboardingData.embeddedWallet.hyperliquid.accountValue}
@@ -349,7 +349,7 @@ export default function TradingApp() {
             <h2 className="text-xl font-semibold text-blue-800 mb-3">💰 Transfer from Your Wallet</h2>
             <div className="bg-white p-4 rounded text-amber-950">
               <p className="text-sm mb-3">
-                Great news! Your connected wallet has{' '}
+                Your connected wallet has{' '}
                 <strong className="text-green-600">
                   ${onboardingData.externalWallet?.hyperliquid.accountValue}
                 </strong>{' '}
@@ -385,16 +385,6 @@ export default function TradingApp() {
               >
                 {loading ? 'Processing...' : `Transfer $${transferAmount} USDC`}
               </button>
-
-              <div className="bg-yellow-100 p-2 rounded text-xs">
-                <p className="font-semibold mb-1">Note:</p>
-                <ul className="list-disc list-inside space-y-1">
-                  <li>This will initiate a transfer on Hyperliquid</li>
-                  <li>You'll need to approve the transaction in your wallet</li>
-                  <li>Transfer typically takes 1-2 minutes</li>
-                  <li>After transfer, click "Check Balance" below</li>
-                </ul>
-              </div>
             </div>
           </div>
         )}
@@ -405,41 +395,11 @@ export default function TradingApp() {
           <div className="mb-6 p-4 bg-red-50 border-2 border-red-400 rounded">
             <h2 className="text-xl font-semibold text-red-800 mb-3">⚠️ Funding Required</h2>
             
-            {/* ETH Balance Status */}
-            {onboardingData.funding.needsEthDeposit && (
-              <div className="mb-4 p-3 bg-white rounded text-amber-950">
-                <h3 className="font-semibold text-red-700 mb-2">1. Deposit ETH for Gas Fees</h3>
-                <p className="text-sm mb-2">Current Balance: {onboardingData.embeddedWallet.ethBalance} ETH</p>
-                <p className="text-sm mb-3">Please deposit ETH to your wallet to cover gas fees</p>
-                
-                <div className="bg-gray-100 p-2 rounded mb-2">
-                  <p className="text-xs font-mono break-all">{onboardingData.embeddedWallet.address}</p>
-                </div>
-                
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => copyToClipboard(onboardingData.embeddedWallet.address)}
-                    className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded text-sm"
-                  >
-                    Copy Address
-                  </button>
-                  <a
-                    href={`https://basescan.org/address/${onboardingData.embeddedWallet.address}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-1 px-3 rounded text-sm"
-                  >
-                    View on BaseScan
-                  </a>
-                </div>
-              </div>
-            )}
-
             {/* Hyperliquid Funding Status */}
             {onboardingData.funding.needsEmbeddedHyperliquidFunding && (
               <div className="mb-4 p-3 bg-white rounded text-amber-950">
                 <h3 className="font-semibold text-red-700 mb-2">
-                  {onboardingData.funding.needsEthDeposit ? '2. ' : ''}Bridge USDC to Hyperliquid
+                  Bridge USDC to Hyperliquid
                 </h3>
                 <p className="text-sm mb-2">
                   Account Value: ${onboardingData.embeddedWallet.hyperliquid.accountValue || '0'}

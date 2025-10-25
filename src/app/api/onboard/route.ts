@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { HttpTransport,InfoClient} from '@nktkas/hyperliquid';
-import { privyClient ,provider} from '@/utils/privy-signature';
-import { createEthersSigner } from '@privy-io/server-auth/ethers';
-import { ethers } from 'ethers';
+import { HttpTransport, InfoClient } from '@nktkas/hyperliquid';
+import { privyClient } from '@/utils/privy-signature';
 
 export async function POST(request: NextRequest) {
   try {
@@ -79,11 +77,6 @@ export async function POST(request: NextRequest) {
       // console.log(`Found external wallet: ${externalWalletAddress}`);
     }
 
-    // Check embedded wallet balance on Base chain
-    const embeddedBalance = await provider.getBalance(embeddedAddress);
-    const embeddedBalanceInEth = ethers.formatEther(embeddedBalance);
-    console.log(`Embedded wallet balance: ${embeddedBalanceInEth} ETH`);
-
     // Initialize Hyperliquid client to check account status
     const transport = new HttpTransport({
       isTestnet: true,
@@ -112,7 +105,7 @@ export async function POST(request: NextRequest) {
       };
 
       const accountValue = parseFloat(userState.marginSummary.accountValue);
-      needsEmbeddedHyperliquidFunding = accountValue < 1;
+      needsEmbeddedHyperliquidFunding = accountValue < 10;
       
       console.log(`Embedded wallet Hyperliquid account value: $${accountValue}`);
       
@@ -148,9 +141,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Determine if user needs to deposit
-    const needsEthDeposit = parseFloat(embeddedBalanceInEth) < 0.0001;
-    const canTransferFromExternal = externalWalletHyperliquid && externalWalletHyperliquid.exists && parseFloat(externalWalletHyperliquid.accountValue) >= 10;
+    // Determine if user can transfer from external wallet
+    const canTransferFromExternal = externalWalletHyperliquid && 
+                                     externalWalletHyperliquid.exists && 
+                                     parseFloat(externalWalletHyperliquid.accountValue) >= 10;
 
     return NextResponse.json({
       success: true,
@@ -158,7 +152,6 @@ export async function POST(request: NextRequest) {
         address: embeddedAddress,
         walletId: actualWalletId,
         isNew: isNewWallet,
-        ethBalance: embeddedBalanceInEth,
         hyperliquid: embeddedHyperliquidAccount
       },
       externalWallet: externalWalletAddress ? {
@@ -166,7 +159,6 @@ export async function POST(request: NextRequest) {
         hyperliquid: externalWalletHyperliquid
       } : null,
       funding: {
-        needsEthDeposit,
         needsEmbeddedHyperliquidFunding,
         canTransferFromExternal,
         message: canTransferFromExternal 
@@ -175,8 +167,8 @@ export async function POST(request: NextRequest) {
           ? 'Please fund your trading wallet to start trading'
           : 'Wallet is ready for trading'
       },
-      canTrade: !needsEthDeposit && !needsEmbeddedHyperliquidFunding,
-      message: !needsEthDeposit && !needsEmbeddedHyperliquidFunding
+      canTrade: !needsEmbeddedHyperliquidFunding,
+      message: !needsEmbeddedHyperliquidFunding
         ? 'Wallet ready for trading'
         : 'Please fund your wallet to continue'
     });
