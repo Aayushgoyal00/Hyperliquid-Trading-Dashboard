@@ -26,14 +26,15 @@ export const provider = new ethers.JsonRpcProvider(rpcUrl);
 export const getSigner = async (walletId: string) => {
     try{
         const wallet = await privyClient.walletApi.getWallet({ id: walletId });
-        // console.log(`Retrieved wallet address: ${wallet.address}`);
+        console.log(`Wallet: ${JSON.stringify(wallet)}`);
         const address = wallet.address;
-        return createEthersSigner({
+        const temp=createEthersSigner({
             walletId,
             address,
             provider,
             privyClient: privyClient as any // Type assertion to resolve pnpm symlink type conflicts
         });
+        return temp;
     }catch(e){
       console.log(`Error : ${e}`)
         return null

@@ -66,10 +66,11 @@ export default function WithdrawForm({ onboardingData, onWithdrawSuccess }: With
       // Create ethers provider and signer
       const ethersProvider = new ethers.BrowserProvider(provider);
       const signer = await ethersProvider.getSigner();
-
+    //   console.log(`Signer is: ${signer}`);
       // Verify the signer address
       const signerAddress = await signer.getAddress();
-      console.log(`Using embedded wallet: ${signerAddress}`);
+    //   console.log(`Using embedded wallet: ${signerAddress}`);
+      console.log(`Signer is: ${signer}`);
 
       // Initialize Hyperliquid transport
       const IS_TESTNET = getIsTestnet();

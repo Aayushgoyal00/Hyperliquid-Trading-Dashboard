@@ -61,7 +61,7 @@ export default function TradingApp() {
           const accountValue = parseFloat(embeddedPerpsBalance.marginSummary.accountValue);
           needsEmbeddedHyperliquidFunding = accountValue < 10;
           
-          console.log(`Embedded wallet Hyperliquid account value: $${accountValue}`);
+          // console.log(`Embedded wallet Hyperliquid account value: $${accountValue}`);
         } catch (error) {
           console.log('Embedded wallet not found on Hyperliquid');
           needsEmbeddedHyperliquidFunding = true;
@@ -76,8 +76,8 @@ export default function TradingApp() {
             externalPerpsBalance = await hyperliquidService.getPerpsBalance(externalAddress);
             externalSpotBalance = await hyperliquidService.getSpotBalance(externalAddress);
             
-            const externalAccountValue = parseFloat(externalPerpsBalance.marginSummary.accountValue);
-            console.log(`External wallet Hyperliquid account value: $${externalAccountValue}`);
+            // const externalAccountValue = parseFloat(externalPerpsBalance.marginSummary.accountValue);
+            // console.log(`External wallet Hyperliquid account value: $${externalAccountValue}`);
           } catch (error) {
             console.log('External wallet not found on Hyperliquid');
           }
@@ -176,7 +176,7 @@ export default function TradingApp() {
     if (ready && !authenticated) {
       login();
     }
-  }, [ready, authenticated, login]);
+  }, [ready, authenticated]);
 
   useEffect(() => {
     if (!authenticated || !user) {
@@ -264,9 +264,10 @@ export default function TradingApp() {
           />
         )}
 
-        {isOnboarded && user?.wallet && onboardingData?.canTrade && (
+        {isOnboarded && user?.wallet && onboardingData?.canTrade && marketData && (
           <TradingForm 
-            embeddedWalletAddress={onboardingData.embeddedWallet.address}
+            onboardingData={onboardingData}
+            marketData={marketData}
             onOrderSuccess={handleOrderSuccess}
           />
         )}

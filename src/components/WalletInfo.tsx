@@ -72,7 +72,7 @@ export default function WalletInfo({ onboardingData, isOnboarded, onLogout }: Wa
         {/* External Wallet Info */}
         {onboardingData.externalWallet && (
           <div className="bg-white p-3 rounded">
-            <h3 className="font-semibold text-sm mb-2">💳 Connected Wallet (MetaMask/External)</h3>
+            <h3 className="font-semibold text-sm mb-2">💳 Connected Wallet (External)</h3>
             <p className="text-xs font-mono truncate mb-1">
               {onboardingData.externalWallet.address}
             </p>
