@@ -2,17 +2,16 @@
 
 import { usePrivy } from '@privy-io/react-auth';
 import { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { OnboardingData, MarketData as MarketDataType } from '@/types/trading';
-import WalletInfo from './WalletInfo';
-import WithdrawForm from './WithdrawForm';
-import FundingStatus from './FundingStatus';
-import MarketData from './MarketData';
-import TradingForm from './TradingForm';
-import SpotPerpsTransfer from './SpotPerpsTransfer';
+import WalletInfo from '@/components/WalletInfo';
+import FundingStatus from '@/components/FundingStatus';
+import MarketData from '@/components/MarketData';
 import { hyperliquidService } from '@/services/hyperliquid';
 
-export default function TradingApp() {
+export default function DashboardPage() {
   const { ready, authenticated, user, login, logout } = usePrivy();
+  const router = useRouter();
   const [isOnboarded, setIsOnboarded] = useState(false);
   const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(null);
   const [marketData, setMarketData] = useState<MarketDataType | null>(null);
@@ -22,7 +21,6 @@ export default function TradingApp() {
     try {
       const data = await hyperliquidService.getMarketData();
       setMarketData(data);
-      // console.log('Market data fetched:', data);
     } catch (error) {
       console.error('Failed to fetch market data:', error);
     }
@@ -33,7 +31,6 @@ export default function TradingApp() {
     
     setLoading(true);
     try {
-      // First, call backend to create/get wallet addresses
       const response = await fetch('/api/onboard', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -45,11 +42,9 @@ export default function TradingApp() {
       const data = await response.json();
       
       if (data.success) {
-        // Now fetch balances from frontend using Hyperliquid service
         const embeddedAddress = data.embeddedWallet.address;
         const externalAddress = data.externalWallet?.address;
 
-        // Fetch embedded wallet balances
         let embeddedPerpsBalance = null;
         let embeddedSpotBalance = null;
         let needsEmbeddedHyperliquidFunding = false;
@@ -60,14 +55,11 @@ export default function TradingApp() {
           
           const accountValue = parseFloat(embeddedPerpsBalance.marginSummary.accountValue);
           needsEmbeddedHyperliquidFunding = accountValue < 10;
-          
-          // console.log(`Embedded wallet Hyperliquid account value: $${accountValue}`);
         } catch (error) {
           console.log('Embedded wallet not found on Hyperliquid');
           needsEmbeddedHyperliquidFunding = true;
         }
 
-        // Fetch external wallet balances if exists
         let externalPerpsBalance = null;
         let externalSpotBalance = null;
 
@@ -75,15 +67,11 @@ export default function TradingApp() {
           try {
             externalPerpsBalance = await hyperliquidService.getPerpsBalance(externalAddress);
             externalSpotBalance = await hyperliquidService.getSpotBalance(externalAddress);
-            
-            // const externalAccountValue = parseFloat(externalPerpsBalance.marginSummary.accountValue);
-            // console.log(`External wallet Hyperliquid account value: $${externalAccountValue}`);
           } catch (error) {
             console.log('External wallet not found on Hyperliquid');
           }
         }
 
-        // Calculate spot balances
         const spotBalance = embeddedSpotBalance?.balances.reduce((total: number, balance: any) => {
           return total + parseFloat(balance.total);
         }, 0) || 0;
@@ -92,11 +80,9 @@ export default function TradingApp() {
           return total + parseFloat(balance.total);
         }, 0) || 0;
 
-        // Determine if user can transfer from external wallet
         const canTransferFromExternal = externalPerpsBalance && 
                                         parseFloat(externalPerpsBalance.marginSummary.accountValue) >= 10;
 
-        // Build enhanced onboarding data
         const enhancedData: OnboardingData = {
           success: true,
           embeddedWallet: {
@@ -160,18 +146,6 @@ export default function TradingApp() {
     setIsOnboarded(false);
   }, []);
 
-  const handleWithdrawSuccess = useCallback(() => {
-    setIsOnboarded(false);
-  }, []);
-
-  const handleTransferSuccess = useCallback(() => {
-    setIsOnboarded(false); // Trigger re-onboarding to refresh balances
-  }, []);
-
-  const handleOrderSuccess = useCallback(() => {
-    fetchMarketData();
-  }, [fetchMarketData]);
-
   useEffect(() => {
     if (ready && !authenticated) {
       login();
@@ -224,30 +198,80 @@ export default function TradingApp() {
   }
 
   return (
-    <div className="container mx-auto p-4 max-w-4xl">
+    <div className="container mx-auto p-4 max-w-6xl">
       <div className="bg-blue-400 shadow-lg rounded-lg p-6">
         <h1 className="text-3xl font-bold mb-6 text-center">Hyperliquid Trading Dashboard</h1>
         
+        {/* Alert for unfunded wallet */}
+        {isOnboarded && !onboardingData?.canTrade && onboardingData?.funding.canTransferFromExternal && (
+          <div className="mb-6 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3 flex-1">
+                <h3 className="text-sm font-bold">Trading Wallet Needs Funding</h3>
+                <p className="mt-1 text-sm">
+                  {onboardingData?.funding.message}
+                </p>
+                <p className="mt-2 text-sm font-semibold">
+                  💡 Please transfer funds from your external wallet to your embedded trading wallet to start trading.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Alert for wallet with no external funds */}
+        {isOnboarded && !onboardingData?.canTrade && !onboardingData?.funding.canTransferFromExternal && (
+          <div className="mb-6 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3 flex-1">
+                <h3 className="text-sm font-bold">Wallet Not Funded</h3>
+                <p className="mt-1 text-sm">
+                  Your trading wallet needs at least $10 to start trading. Please deposit funds to your embedded wallet address.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Navigation Buttons */}
+        {isOnboarded && onboardingData?.canTrade && (
+          <div className="mt-6 mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <button
+              onClick={() => router.push('/trade')}
+              className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+            >
+              📈 Place Orders
+            </button>
+            <button
+              onClick={() => router.push('/transfer')}
+              className="bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+            >
+              🔄 Spot-Perps Transfer
+            </button>
+            <button
+              onClick={() => router.push('/withdraw')}
+              className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+            >
+              💸 Withdraw
+            </button>
+          </div>
+        )}
+
         <WalletInfo 
           onboardingData={onboardingData}
           isOnboarded={isOnboarded}
           onLogout={logout}
         />
-
-        {isOnboarded && onboardingData?.canTrade && (
-          <WithdrawForm 
-            onboardingData={onboardingData}
-            onWithdrawSuccess={handleWithdrawSuccess}
-          />
-        )}
-
-        {/* Spot-Perps Transfer - Show if wallet is funded */}
-        {isOnboarded && onboardingData?.canTrade && (
-          <SpotPerpsTransfer 
-            onboardingData={onboardingData}
-            onTransferSuccess={handleTransferSuccess}
-          />
-        )}
 
         {isOnboarded && onboardingData && (
           <FundingStatus 
@@ -264,13 +288,7 @@ export default function TradingApp() {
           />
         )}
 
-        {isOnboarded && user?.wallet && onboardingData?.canTrade && marketData && (
-          <TradingForm 
-            onboardingData={onboardingData}
-            marketData={marketData}
-            onOrderSuccess={handleOrderSuccess}
-          />
-        )}
+        
       </div>
     </div>
   );

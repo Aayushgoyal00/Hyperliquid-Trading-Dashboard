@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    console.log(`Onboarding user ${walletId}`);
+    // console.log(`Onboarding user ${walletId}`);
     const users = await privyClient.getUsers();
     
     // Find the specific user by ID
