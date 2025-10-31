@@ -41,11 +41,11 @@ export default function FundingStatus({ onboardingData, loading, onRefreshBalanc
             <div className="bg-yellow-100 p-2 rounded text-xs">
               <p className="font-semibold mb-1">Instructions:</p>
               <ol className="list-decimal list-inside space-y-1">
-                <li>Click "Bridge USDC to Hyperliquid" above</li>
+                <li>Click &quot;Bridge USDC to Hyperliquid&quot; above</li>
                 <li>Connect your wallet ({onboardingData.embeddedWallet.address.slice(0, 6)}...{onboardingData.embeddedWallet.address.slice(-4)})</li>
                 <li>Bridge at least $10 USDC to start trading</li>
                 <li>Wait for confirmation (usually 1-2 minutes)</li>
-                <li>Click "Check Balance" below</li>
+                <li>Click &quot;Check Balance&quot; below</li>
               </ol>
             </div>
           </div>

@@ -2,7 +2,7 @@
 
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useCreateWallet } from '@privy-io/react-auth';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { OnboardingData, MarketData as MarketDataType } from '@/types/trading';
 import WalletInfo from '@/components/WalletInfo';
@@ -15,7 +15,7 @@ import { hyperliquidService } from '@/services/hyperliquid';
 
 type TabType = 'home' | 'trade' | 'transfer' | 'withdraw';
 
-export default function DashboardPage() {
+function DashboardContent() {
   const { ready, authenticated, user, login, logout } = usePrivy();
   const { wallets, ready: walletsReady } = useWallets();
   const { createWallet } = useCreateWallet();
@@ -96,7 +96,7 @@ export default function DashboardPage() {
           
           const accountValue = parseFloat(embeddedPerpsBalance.marginSummary.accountValue);
           needsEmbeddedHyperliquidFunding = accountValue < 10;
-        } catch (error) {
+        } catch {
           console.log('Embedded wallet not found on Hyperliquid');
           needsEmbeddedHyperliquidFunding = true;
         }
@@ -108,16 +108,16 @@ export default function DashboardPage() {
           try {
             externalPerpsBalance = await hyperliquidService.getPerpsBalance(externalAddress);
             externalSpotBalance = await hyperliquidService.getSpotBalance(externalAddress);
-          } catch (error) {
+          } catch {
             console.log('External wallet not found on Hyperliquid');
           }
         }
 
-        const spotBalance = embeddedSpotBalance?.balances.reduce((total: number, balance: any) => {
+        const spotBalance = embeddedSpotBalance?.balances.reduce((total: number, balance: { total: string }) => {
           return total + parseFloat(balance.total);
         }, 0) || 0;
 
-        const externalSpotBalanceTotal = externalSpotBalance?.balances.reduce((total: number, balance: any) => {
+        const externalSpotBalanceTotal = externalSpotBalance?.balances.reduce((total: number, balance: { total: string }) => {
           return total + parseFloat(balance.total);
         }, 0) || 0;
 
@@ -207,7 +207,7 @@ export default function DashboardPage() {
     if (ready && !authenticated) {
       login();
     }
-  }, [ready, authenticated]);
+  }, [ready, authenticated, login]);
 
   useEffect(() => {
     if (!authenticated || !user) {
@@ -215,7 +215,7 @@ export default function DashboardPage() {
       setOnboardingData(null);
       setMarketData(null);
     }
-  }, [authenticated, user?.id]);
+  }, [authenticated, user]);
 
   useEffect(() => {
     if (authenticated && user && !isOnboarded && walletsReady && wallets.length > 0) {
@@ -435,5 +435,17 @@ export default function DashboardPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Loading...</div>
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
   );
 }

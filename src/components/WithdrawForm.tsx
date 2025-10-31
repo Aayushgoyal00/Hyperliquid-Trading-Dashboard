@@ -84,7 +84,7 @@ export default function WithdrawForm({ onboardingData, onWithdrawSuccess }: With
 
       const exchangeClient = new ExchangeClient({
         transport,
-        wallet: signer as any,
+        wallet: signer as unknown as ethers.Wallet,
         isTestnet: IS_TESTNET
       });
 

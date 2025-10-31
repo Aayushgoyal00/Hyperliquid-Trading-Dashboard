@@ -7,7 +7,7 @@ export function parseErrorMessage(error: unknown, defaultMessage: string): strin
   }
   
   const errorStr = error.message.toLowerCase();
-  const errorCode = (error as any).code;
+  const errorCode = (error as { code?: string | number }).code;
   
   // User rejected the transaction
   if (errorStr.includes('user rejected') || 
