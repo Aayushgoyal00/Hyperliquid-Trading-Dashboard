@@ -169,44 +169,6 @@ privy-setup/
 - Enter amount
 - Confirm withdrawal - funds sent to your specified address
 
-## 🔧 Advanced Features
-
-### Multi-Wallet Support
-The dashboard automatically detects and manages:
-- **Embedded Wallet** (Primary): Created by Privy, used for trading
-- **External Wallets** (Optional): MetaMask, Coinbase Wallet, etc.
-
-### Wallet Detection
-```typescript
-// Automatically handled by the dashboard
-const embeddedWallet = wallets.find(w => w.walletClientType === 'privy');
-const externalWallet = wallets.find(w => w.walletClientType !== 'privy');
-```
-
-### Custom Configuration
-Edit `src/components/PrivyWrapper.tsx` to customize:
-```typescript
-config={{
-  embeddedWallets: {
-    ethereum: {
-      createOnLogin: 'users-without-wallets', // Options: 'all-users', 'users-without-wallets', 'off'
-    },
-  },
-  loginMethods: ['email', 'wallet', 'google'], // Add/remove as needed
-  appearance: {
-    theme: 'light', // 'light' or 'dark'
-    accentColor: '#676FFF',
-  },
-}}
-```
-
-## 📚 Documentation
-
-- [Wallet Flow Architecture](./docs/WALLET_FLOW.md) - Detailed wallet management flow
-- [Migration Guide](./docs/MIGRATION_GUIDE.md) - Backend to frontend migration
-- [Privy Documentation](https://docs.privy.io/) - Official Privy docs
-- [Hyperliquid API](https://hyperliquid.gitbook.io/) - Hyperliquid trading API
-
 
 ## 🙏 Acknowledgments
 
