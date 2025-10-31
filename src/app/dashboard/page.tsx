@@ -1,6 +1,7 @@
 'use client';
 
 import { usePrivy, useWallets } from '@privy-io/react-auth';
+import { useCreateWallet } from '@privy-io/react-auth';
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { OnboardingData, MarketData as MarketDataType } from '@/types/trading';
@@ -16,7 +17,8 @@ type TabType = 'home' | 'trade' | 'transfer' | 'withdraw';
 
 export default function DashboardPage() {
   const { ready, authenticated, user, login, logout } = usePrivy();
-  const { wallets } = useWallets();
+  const { wallets, ready: walletsReady } = useWallets();
+  const { createWallet } = useCreateWallet();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<TabType>('home');
@@ -24,6 +26,7 @@ export default function DashboardPage() {
   const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(null);
   const [marketData, setMarketData] = useState<MarketDataType | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isCreatingWallet, setIsCreatingWallet] = useState(false);
 
   // Update active tab based on URL
   useEffect(() => {
@@ -45,18 +48,37 @@ export default function DashboardPage() {
   }, []);
 
   const handleOnboard = useCallback(async () => {
-    if (!user || !wallets) return;
+    if (!user || !walletsReady) return;
     
     setLoading(true);
     try {
       // Find embedded wallet from Privy wallets
-      const embeddedWallet = wallets.find(w => w.walletClientType === 'privy');
+      let embeddedWallet = wallets.find(w => w.walletClientType === 'privy');
+      
+      // If no embedded wallet exists, create one
+      if (!embeddedWallet) {
+        console.log('No embedded wallet found, creating one...');
+        setIsCreatingWallet(true);
+        try {
+          await createWallet();
+          // Wait a bit for the wallet to be available
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          // Re-check for the wallet
+          embeddedWallet = wallets.find(w => w.walletClientType === 'privy');
+          setIsCreatingWallet(false);
+        } catch (error) {
+          console.error('Failed to create wallet:', error);
+          setIsCreatingWallet(false);
+          setLoading(false);
+          return;
+        }
+      }
       
       // Find external wallet (MetaMask, Coinbase, etc.)
       const externalWallet = wallets.find(w => w.walletClientType !== 'privy');
       
       if (!embeddedWallet) {
-        console.error('No embedded wallet found');
+        console.error('No embedded wallet found after creation attempt');
         setLoading(false);
         return;
       }
@@ -158,7 +180,7 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [user, wallets]);
+  }, [user, wallets, walletsReady, createWallet]);
 
   const handleRefreshBalance = useCallback(() => {
     setIsOnboarded(false);
@@ -196,10 +218,10 @@ export default function DashboardPage() {
   }, [authenticated, user?.id]);
 
   useEffect(() => {
-    if (authenticated && user && !isOnboarded && wallets.length > 0) {
+    if (authenticated && user && !isOnboarded && walletsReady && wallets.length > 0) {
       handleOnboard();
     }
-  }, [authenticated, user, isOnboarded, handleOnboard, wallets]);
+  }, [authenticated, user, isOnboarded, handleOnboard, wallets, walletsReady]);
 
   useEffect(() => {
     if (isOnboarded && !marketData) {
@@ -207,10 +229,21 @@ export default function DashboardPage() {
     }
   }, [isOnboarded, marketData, fetchMarketData]);
 
-  if (!ready) {
+  if (!ready || !walletsReady) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-lg">Loading...</div>
+      </div>
+    );
+  }
+
+  if (isCreatingWallet) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="text-lg mb-2">Creating your wallet...</div>
+          <div className="text-sm text-gray-600">Please wait a moment</div>
+        </div>
       </div>
     );
   }

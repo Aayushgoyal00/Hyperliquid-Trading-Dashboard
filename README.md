@@ -28,18 +28,25 @@ A modern, secure decentralized trading interface for [Hyperliquid](https://hyper
 
 ## 🏗️ Architecture
 
-### Frontend-First Design
-This app uses a **frontend-direct architecture** for maximum security and performance:
+### Frontend-First Design ✨
+This app uses a **frontend-direct architecture** with automatic wallet creation:
 
 ```
-User → Privy Auth → Embedded Wallet → Client-Side Signing → Hyperliquid
+User Login → Privy Auth → Auto-Create Embedded Wallet → Client-Side Signing → Hyperliquid
 ```
 
 **Key Benefits:**
-- ✅ No backend secrets or API keys exposed
-- ✅ Faster execution (no server round-trips)
-- ✅ Better security (users control private keys)
-- ✅ Simplified infrastructure
+- ✅ **Automatic wallet creation** - wallets created on first login
+- ✅ **Zero backend wallet logic** - all wallet management on frontend
+- ✅ **Faster execution** - no server round-trips for wallet operations
+- ✅ **Better security** - users control private keys via Privy's MPC
+- ✅ **Simplified infrastructure** - fewer API endpoints to maintain
+
+### Wallet Management
+- **Embedded Wallets**: Automatically created via Privy's `createOnLogin` config
+- **External Wallets**: Optional MetaMask/Coinbase Wallet connection
+- **Multi-Wallet Support**: Seamlessly manage both wallet types
+- **Balance Tracking**: Real-time monitoring across all connected wallets
 
 ## 🚀 Getting Started
 
@@ -69,6 +76,8 @@ Create a `.env.local` file in the root directory:
 ```env
 # Privy Configuration
 NEXT_PUBLIC_PRIVY_APP_ID=your_privy_app_id_here
+
+# Optional: Server-side features (if needed)
 PRIVY_APP_SECRET=your_privy_app_secret_here
 
 # Optional: Network Configuration
@@ -78,8 +87,11 @@ NEXT_PUBLIC_HYPERLIQUID_NETWORK=testnet  # or mainnet
 **Get Your Privy Credentials:**
 1. Go to [Privy Dashboard](https://dashboard.privy.io/)
 2. Create a new app
-3. Copy your App ID and App Secret
+3. Copy your App ID (required)
 4. Enable "Embedded Wallets" in settings
+5. Configure "Create on Login" to `users-without-wallets`
+
+**Note:** `PRIVY_APP_SECRET` is only needed if you're using server-side features. For basic wallet management and trading, only `NEXT_PUBLIC_PRIVY_APP_ID` is required.
 
 ### 4. Run Development Server
 
@@ -97,27 +109,28 @@ privy-setup/
 │   ├── app/                    # Next.js App Router pages
 │   │   ├── page.tsx           # Landing (redirects to dashboard)
 │   │   ├── dashboard/         # Main dashboard page
-│   │   ├── trade/             # Order placement page
-│   │   ├── transfer/          # Spot-Perps transfer page
-│   │   ├── withdraw/          # Withdrawal page
-│   │   └── api/
-│   │       └── onboard/       # Wallet creation endpoint
+│   │   ├── layout.tsx         # Root layout with PrivyWrapper
+│   │   └── globals.css        # Global styles
 │   ├── components/            # React components
-│   │   ├── PrivyWrapper.tsx   # Privy authentication wrapper
+│   │   ├── PrivyWrapper.tsx   # Privy provider with auto-wallet config
 │   │   ├── TradingForm.tsx    # Order placement UI
 │   │   ├── WithdrawForm.tsx   # Withdrawal UI
-│   │   ├── SpotPerpsTransfer.tsx
-│   │   ├── WalletInfo.tsx
-│   │   ├── MarketData.tsx
-│   │   └── FundingStatus.tsx
+│   │   ├── SpotPerpsTransfer.tsx  # Transfer between accounts
+│   │   ├── WalletInfo.tsx     # Wallet display component
+│   │   ├── MarketData.tsx     # Real-time market data
+│   │   └── FundingStatus.tsx  # Account funding status
 │   ├── services/              # Business logic
 │   │   └── hyperliquid.ts     # Hyperliquid API client
 │   ├── utils/                 # Utility functions
-│   │   └── privy-signature.ts # Privy server client
+│   │   ├── hyperliquid-config.ts  # Network configuration
+│   │   └── error-parser.ts    # Error handling utilities
 │   └── types/                 # TypeScript definitions
-│       └── trading.ts
+│       └── trading.ts         # Trading-related types
+├── docs/                      # Documentation
+│   ├── WALLET_FLOW.md         # Wallet management architecture
+│   └── MIGRATION_GUIDE.md     # Migration from backend to frontend
 ├── public/                    # Static assets
-├── .env.example                 # Environment variables (create this)
+├── .env.local                 # Environment variables (create this)
 ├── package.json
 ├── tsconfig.json
 └── tailwind.config.ts
@@ -125,35 +138,74 @@ privy-setup/
 
 ## 🎯 Usage Guide
 
-### 1. Authentication
+### 1. Authentication & Wallet Creation
 - Click "Login" on the landing page
-- Connect with email, social, or external wallet
-- Privy creates an embedded wallet automatically
+- Choose login method (email, Google, or external wallet)
+- **Wallet automatically created** on first login via Privy
+- No seed phrases or manual setup required
 
 ### 2. Fund Your Wallet
-- Go to **Dashboard**
+- Go to **Dashboard** - wallet info displayed automatically
 - Copy your embedded wallet address
 - Send USDC or ETH to the address (on Arbitrum network)
-- **Or** transfer from connected external wallet
+- **Or** connect external wallet (MetaMask) and transfer funds
 
 ### 3. Place Orders
-- Navigate to **📈 Place Orders**
+- Navigate to **📈 Place Orders** tab
 - Select asset (BTC, ETH, SOL, etc.)
 - Choose Market or Limit order
 - Enter size and price
-- Click Buy/Sell
+- Click Buy/Sell - sign with your embedded wallet
 
 ### 4. Transfer Between Accounts
-- Go to **🔄 Spot-Perps Transfer**
+- Go to **🔄 Spot-Perps Transfer** tab
 - Select direction (Spot → Perps or vice versa)
 - Enter amount
 - Confirm transfer
 
 ### 5. Withdraw Funds
-- Navigate to **💸 Withdraw**
+- Navigate to **💸 Withdraw** tab
 - Enter destination wallet address
 - Enter amount
-- Confirm withdrawal
+- Confirm withdrawal - funds sent to your specified address
+
+## 🔧 Advanced Features
+
+### Multi-Wallet Support
+The dashboard automatically detects and manages:
+- **Embedded Wallet** (Primary): Created by Privy, used for trading
+- **External Wallets** (Optional): MetaMask, Coinbase Wallet, etc.
+
+### Wallet Detection
+```typescript
+// Automatically handled by the dashboard
+const embeddedWallet = wallets.find(w => w.walletClientType === 'privy');
+const externalWallet = wallets.find(w => w.walletClientType !== 'privy');
+```
+
+### Custom Configuration
+Edit `src/components/PrivyWrapper.tsx` to customize:
+```typescript
+config={{
+  embeddedWallets: {
+    ethereum: {
+      createOnLogin: 'users-without-wallets', // Options: 'all-users', 'users-without-wallets', 'off'
+    },
+  },
+  loginMethods: ['email', 'wallet', 'google'], // Add/remove as needed
+  appearance: {
+    theme: 'light', // 'light' or 'dark'
+    accentColor: '#676FFF',
+  },
+}}
+```
+
+## 📚 Documentation
+
+- [Wallet Flow Architecture](./docs/WALLET_FLOW.md) - Detailed wallet management flow
+- [Migration Guide](./docs/MIGRATION_GUIDE.md) - Backend to frontend migration
+- [Privy Documentation](https://docs.privy.io/) - Official Privy docs
+- [Hyperliquid API](https://hyperliquid.gitbook.io/) - Hyperliquid trading API
 
 
 ## 🙏 Acknowledgments
