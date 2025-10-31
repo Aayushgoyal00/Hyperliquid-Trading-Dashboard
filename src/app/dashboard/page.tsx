@@ -207,7 +207,7 @@ function DashboardContent() {
     if (ready && !authenticated) {
       login();
     }
-  }, [ready, authenticated, login]);
+  }, [ready, authenticated]);
 
   useEffect(() => {
     if (!authenticated || !user) {
