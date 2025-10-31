@@ -6,22 +6,15 @@ import { copyToClipboard } from '@/utils/error-parser';
 interface WalletInfoProps {
   onboardingData: OnboardingData | null;
   isOnboarded: boolean;
-  onLogout: () => void;
 }
 
-export default function WalletInfo({ onboardingData, isOnboarded, onLogout }: WalletInfoProps) {
+export default function WalletInfo({ onboardingData, isOnboarded }: WalletInfoProps) {
   if (!onboardingData) return null;
 
   return (
     <div className="mb-6 p-4 bg-amber-50 rounded text-amber-900">
-      <div className="flex justify-between items-start mb-2">
+      <div className="mb-2">
         <h2 className="text-xl font-semibold">Account Info</h2>
-        <button 
-          onClick={onLogout}
-          className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-3 rounded text-sm"
-        >
-          Logout
-        </button>
       </div>
       
       <div className="space-y-3">

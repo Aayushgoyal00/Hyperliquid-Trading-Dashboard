@@ -1,21 +1,39 @@
 'use client';
 
-import { usePrivy } from '@privy-io/react-auth';
+import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useEffect, useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { OnboardingData, MarketData as MarketDataType } from '@/types/trading';
 import WalletInfo from '@/components/WalletInfo';
 import FundingStatus from '@/components/FundingStatus';
 import MarketData from '@/components/MarketData';
+import TradingForm from '@/components/TradingForm';
+import SpotPerpsTransfer from '@/components/SpotPerpsTransfer';
+import WithdrawForm from '@/components/WithdrawForm';
 import { hyperliquidService } from '@/services/hyperliquid';
+
+type TabType = 'home' | 'trade' | 'transfer' | 'withdraw';
 
 export default function DashboardPage() {
   const { ready, authenticated, user, login, logout } = usePrivy();
+  const { wallets } = useWallets();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState<TabType>('home');
   const [isOnboarded, setIsOnboarded] = useState(false);
   const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(null);
   const [marketData, setMarketData] = useState<MarketDataType | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Update active tab based on URL
+  useEffect(() => {
+    const tab = searchParams.get('tab') as TabType;
+    if (tab && ['home', 'trade', 'transfer', 'withdraw'].includes(tab)) {
+      setActiveTab(tab);
+    } else {
+      setActiveTab('home');
+    }
+  }, [searchParams]);
 
   const fetchMarketData = useCallback(async () => {
     try {
@@ -27,23 +45,24 @@ export default function DashboardPage() {
   }, []);
 
   const handleOnboard = useCallback(async () => {
-    if (!user) return;
+    if (!user || !wallets) return;
     
     setLoading(true);
     try {
-      const response = await fetch('/api/onboard', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          walletId: user.id || null
-        }),
-      });
+      // Find embedded wallet from Privy wallets
+      const embeddedWallet = wallets.find(w => w.walletClientType === 'privy');
       
-      const data = await response.json();
+      // Find external wallet (MetaMask, Coinbase, etc.)
+      const externalWallet = wallets.find(w => w.walletClientType !== 'privy');
       
-      if (data.success) {
-        const embeddedAddress = data.embeddedWallet.address;
-        const externalAddress = data.externalWallet?.address;
+      if (!embeddedWallet) {
+        console.error('No embedded wallet found');
+        setLoading(false);
+        return;
+      }
+
+      const embeddedAddress = embeddedWallet.address;
+      const externalAddress = externalWallet?.address;
 
         let embeddedPerpsBalance = null;
         let embeddedSpotBalance = null;
@@ -87,8 +106,8 @@ export default function DashboardPage() {
           success: true,
           embeddedWallet: {
             address: embeddedAddress,
-            walletId: data.embeddedWallet.walletId,
-            isNew: data.embeddedWallet.isNew,
+            walletId: embeddedAddress,
+            isNew: false,
             hyperliquid: embeddedPerpsBalance ? {
               exists: true,
               accountValue: embeddedPerpsBalance.marginSummary.accountValue,
@@ -134,23 +153,39 @@ export default function DashboardPage() {
 
         setIsOnboarded(true);
         setOnboardingData(enhancedData);
-      }
     } catch (error) {
       console.error('Onboarding failed:', error);
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, wallets]);
 
   const handleRefreshBalance = useCallback(() => {
     setIsOnboarded(false);
   }, []);
 
+  const handleWithdrawSuccess = useCallback(() => {
+    setIsOnboarded(false);
+  }, []);
+
+  const handleTransferSuccess = useCallback(() => {
+    setIsOnboarded(false);
+  }, []);
+
+  const handleOrderSuccess = useCallback(() => {
+    fetchMarketData();
+  }, [fetchMarketData]);
+
+  const handleTabChange = (tab: TabType) => {
+    setActiveTab(tab);
+    router.push(`/dashboard?tab=${tab}`);
+  };
+
   useEffect(() => {
     if (ready && !authenticated) {
       login();
     }
-  }, [ready, authenticated]);
+  }, [ready, authenticated, login]);
 
   useEffect(() => {
     if (!authenticated || !user) {
@@ -161,10 +196,10 @@ export default function DashboardPage() {
   }, [authenticated, user?.id]);
 
   useEffect(() => {
-    if (authenticated && user && !isOnboarded) {
+    if (authenticated && user && !isOnboarded && wallets.length > 0) {
       handleOnboard();
     }
-  }, [authenticated, user, isOnboarded, handleOnboard]);
+  }, [authenticated, user, isOnboarded, handleOnboard, wallets]);
 
   useEffect(() => {
     if (isOnboarded && !marketData) {
@@ -200,7 +235,18 @@ export default function DashboardPage() {
   return (
     <div className="container mx-auto p-4 max-w-6xl">
       <div className="bg-blue-400 shadow-lg rounded-lg p-6">
-        <h1 className="text-3xl font-bold mb-6 text-center">Hyperliquid Trading Dashboard</h1>
+        {/* Header with Title and Logout */}
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold ">Hyperliquid Trading Dashboard</h1>
+          {authenticated && (
+            <button 
+              onClick={logout}
+              className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition-colors"
+            >
+              Logout
+            </button>
+          )}
+        </div>
         
         {/* Alert for unfunded wallet */}
         {isOnboarded && !onboardingData?.canTrade && onboardingData?.funding.canTransferFromExternal && (
@@ -243,52 +289,117 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Navigation Buttons */}
-        {isOnboarded && onboardingData?.canTrade && (
-          <div className="mt-6 mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <button
-              onClick={() => router.push('/trade')}
-              className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg transition-colors"
-            >
-              📈 Place Orders
-            </button>
-            <button
-              onClick={() => router.push('/transfer')}
-              className="bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 px-6 rounded-lg transition-colors"
-            >
-              🔄 Spot-Perps Transfer
-            </button>
-            <button
-              onClick={() => router.push('/withdraw')}
-              className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-6 rounded-lg transition-colors"
-            >
-              💸 Withdraw
-            </button>
+        {/* Navigation Tabs */}
+        {isOnboarded && (
+          <div className="mb-6 border-b border-gray-300">
+            <nav className="flex space-x-4">
+              <button
+                onClick={() => handleTabChange('home')}
+                className={`py-2 px-4 font-semibold transition-colors border-b-2 ${
+                  activeTab === 'home'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-600 hover:text-blue-600'
+                }`}
+              >
+                🏠 Home
+              </button>
+              {onboardingData?.canTrade && (
+                <>
+                  <button
+                    onClick={() => handleTabChange('trade')}
+                    className={`py-2 px-4 font-semibold transition-colors border-b-2 ${
+                      activeTab === 'trade'
+                        ? 'border-blue-600 text-blue-600'
+                        : 'border-transparent text-gray-600 hover:text-blue-600'
+                    }`}
+                  >
+                    📈 Place Orders
+                  </button>
+                  <button
+                    onClick={() => handleTabChange('transfer')}
+                    className={`py-2 px-4 font-semibold transition-colors border-b-2 ${
+                      activeTab === 'transfer'
+                        ? 'border-blue-600 text-blue-600'
+                        : 'border-transparent text-gray-600 hover:text-blue-600'
+                    }`}
+                  >
+                    🔄 Spot-Perps Transfer
+                  </button>
+                  <button
+                    onClick={() => handleTabChange('withdraw')}
+                    className={`py-2 px-4 font-semibold transition-colors border-b-2 ${
+                      activeTab === 'withdraw'
+                        ? 'border-blue-600 text-blue-600'
+                        : 'border-transparent text-gray-600 hover:text-blue-600'
+                    }`}
+                  >
+                    💸 Withdraw
+                  </button>
+                </>
+              )}
+            </nav>
           </div>
         )}
 
-        <WalletInfo 
-          onboardingData={onboardingData}
-          isOnboarded={isOnboarded}
-          onLogout={logout}
-        />
+        {/* Home Tab - Show Account Info, Funding Status and Market Data */}
+        {activeTab === 'home' && (
+          <>
+            <WalletInfo 
+              onboardingData={onboardingData}
+              isOnboarded={isOnboarded}
+            />
+            {isOnboarded && onboardingData && (
+              <FundingStatus 
+                onboardingData={onboardingData}
+                loading={loading}
+                onRefreshBalance={handleRefreshBalance}
+              />
+            )}
 
-        {isOnboarded && onboardingData && (
-          <FundingStatus 
+            {isOnboarded && marketData && (
+              <MarketData 
+                marketData={marketData}
+                onRefresh={fetchMarketData}
+              />
+            )}
+          </>
+        )}
+
+        {/* Trade Tab - Show Market Data and Trading Form */}
+        {activeTab === 'trade' && isOnboarded && onboardingData?.canTrade && (
+          <>
+            {marketData && (
+              <MarketData 
+                marketData={marketData}
+                onRefresh={fetchMarketData}
+              />
+            )}
+            
+            {user?.wallet && marketData && (
+              <TradingForm 
+                onboardingData={onboardingData}
+                marketData={marketData}
+                onOrderSuccess={handleOrderSuccess}
+              />
+            )}
+          </>
+        )}
+
+        {/* Transfer Tab - Show Spot-Perps Transfer */}
+        {activeTab === 'transfer' && isOnboarded && onboardingData?.canTrade && (
+          <SpotPerpsTransfer 
             onboardingData={onboardingData}
-            loading={loading}
-            onRefreshBalance={handleRefreshBalance}
+            onTransferSuccess={handleTransferSuccess}
           />
         )}
 
-        {isOnboarded && marketData && (
-          <MarketData 
-            marketData={marketData}
-            onRefresh={fetchMarketData}
+        {/* Withdraw Tab - Show Withdraw Form */}
+        {activeTab === 'withdraw' && isOnboarded && onboardingData?.canTrade && (
+          <WithdrawForm 
+            onboardingData={onboardingData}
+            onWithdrawSuccess={handleWithdrawSuccess}
           />
         )}
-
-        
       </div>
     </div>
   );

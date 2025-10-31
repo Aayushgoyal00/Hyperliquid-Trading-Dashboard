@@ -226,12 +226,21 @@ export default function TradingApp() {
   return (
     <div className="container mx-auto p-4 max-w-4xl">
       <div className="bg-blue-400 shadow-lg rounded-lg p-6">
-        <h1 className="text-3xl font-bold mb-6 text-center">Hyperliquid Trading Dashboard</h1>
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold">Hyperliquid Trading Dashboard</h1>
+          {authenticated && (
+            <button 
+              onClick={logout}
+              className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition-colors"
+            >
+              Logout
+            </button>
+          )}
+        </div>
         
         <WalletInfo 
           onboardingData={onboardingData}
           isOnboarded={isOnboarded}
-          onLogout={logout}
         />
 
         {isOnboarded && onboardingData?.canTrade && (
