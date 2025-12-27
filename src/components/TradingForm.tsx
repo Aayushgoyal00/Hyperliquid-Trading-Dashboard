@@ -139,7 +139,7 @@ export default function TradingForm({ onboardingData, marketData, onOrderSuccess
         orderPrice = toSignificantDigits(parseFloat(limitPrice), SIGNIFICANT_DIGITS);
       }
       
-      console.log(`📊 Placing ${orderType} ${side} order:`, {
+      console.log(`Placing ${orderType} ${side} order:`, {
         asset: selectedAsset,
         assetIndex,
         size: roundedSize,
@@ -172,11 +172,11 @@ export default function TradingForm({ onboardingData, marketData, onOrderSuccess
         if (response.statuses && response.statuses[0]) {
           const status = response.statuses[0];
           if ('resting' in status) {
-            alert(`✅ Order placed successfully!\n\nOrder ID: ${status.resting.oid}\nStatus: Resting (pending fill)`);
+            alert(`Order placed successfully!\n\nOrder ID: ${status.resting.oid}\nStatus: Resting (pending fill)`);
           } else if ('filled' in status) {
-            alert(`✅ Order filled immediately!\n\nFilled size: ${status.filled.totalSz}\nAverage price: $${status.filled.avgPx}`);
+            alert(`Order filled immediately!\n\nFilled size: ${status.filled.totalSz}\nAverage price: $${status.filled.avgPx}`);
           } else {
-            alert(`✅ Order submitted!\n\n${JSON.stringify(status)}`);
+            alert(`Order submitted!\n\n${JSON.stringify(status)}`);
           }
           
           // Clear form and refresh
@@ -194,7 +194,7 @@ export default function TradingForm({ onboardingData, marketData, onOrderSuccess
     } catch (error) {
       console.error('Order placement failed:', error);
       const errorMessage = parseErrorMessage(error, 'Order placement failed. Please try again.');
-      alert(`❌ ${errorMessage}`);
+      alert(`Error: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -202,7 +202,7 @@ export default function TradingForm({ onboardingData, marketData, onOrderSuccess
 
   return (
     <div className="mb-6 p-4 bg-green-50 border-2 border-green-400 rounded">
-      <h2 className="text-xl font-semibold text-green-800 mb-3">📈 Place Order</h2>
+      <h2 className="text-xl font-semibold text-green-800 mb-3">Place Order</h2>
       <div className="bg-white p-4 rounded">
         {/* Asset Selection */}
         <div className="mb-3">
@@ -259,7 +259,7 @@ export default function TradingForm({ onboardingData, marketData, onOrderSuccess
                   : 'bg-gray-200 text-gray-700'
               }`}
             >
-              🟢 Buy
+              Buy
             </button>
             <button
               onClick={() => setSide('sell')}
@@ -269,7 +269,7 @@ export default function TradingForm({ onboardingData, marketData, onOrderSuccess
                   : 'bg-gray-200 text-gray-700'
               }`}
             >
-              🔴 Sell
+              Sell
             </button>
           </div>
         </div>
@@ -314,7 +314,7 @@ export default function TradingForm({ onboardingData, marketData, onOrderSuccess
           {orderType === 'limit' && <p>at ${limitPrice || '0'}</p>}
           {orderType === 'market' && (
             <p className="text-xs text-orange-600 mt-1">
-              ⚠️ Market orders execute at current market price
+              Warning: Market orders execute at current market price
             </p>
           )}
         </div>
@@ -333,7 +333,7 @@ export default function TradingForm({ onboardingData, marketData, onOrderSuccess
         </button>
 
         <p className="text-xs text-gray-500 mt-2">
-          💡 Orders are placed on Hyperliquid {getIsTestnet() ? 'Testnet' : 'Mainnet'}
+          Note: Orders are placed on Hyperliquid {getIsTestnet() ? 'Testnet' : 'Mainnet'}
         </p>
       </div>
     </div>

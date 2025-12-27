@@ -88,7 +88,7 @@ export default function WithdrawForm({ onboardingData, onWithdrawSuccess }: With
         isTestnet: IS_TESTNET
       });
 
-      console.log(`🔄 Transferring $${amount} USDC from ${signerAddress} to ${recipientAddress} on ${IS_TESTNET ? 'TESTNET' : 'MAINNET'}...`);
+      console.log(`Transferring $${amount} USDC from ${signerAddress} to ${recipientAddress} on ${IS_TESTNET ? 'TESTNET' : 'MAINNET'}...`);
 
       // Perform the transfer
       const transferResponse = await exchangeClient.usdSend({
@@ -99,7 +99,7 @@ export default function WithdrawForm({ onboardingData, onWithdrawSuccess }: With
       console.log('Transfer response:', transferResponse);
 
       if (transferResponse.status === 'ok') {
-        alert(`✅ Transfer successful! Transferred $${amount} USDC\n\nTo: ${recipientAddress}`);
+        alert(`Transfer successful! Transferred $${amount} USDC\n\nTo: ${recipientAddress}`);
         // Clear recipient address and trigger refresh
         setRecipientAddress('');
         setTimeout(() => {
@@ -111,7 +111,7 @@ export default function WithdrawForm({ onboardingData, onWithdrawSuccess }: With
     } catch (error) {
       console.error('Transfer failed:', error);
       const errorMessage = parseErrorMessage(error, 'Transfer failed. Please try again.');
-      alert(`❌ ${errorMessage}`);
+      alert(`Error: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -119,7 +119,7 @@ export default function WithdrawForm({ onboardingData, onWithdrawSuccess }: With
 
   return (
     <div className="mb-6 p-4 bg-purple-50 border-2 border-purple-400 rounded">
-      <h2 className="text-xl font-semibold text-purple-800 mb-3">💸 Withdraw from Trading Wallet</h2>
+      <h2 className="text-xl font-semibold text-purple-800 mb-3">Withdraw from Trading Wallet</h2>
       <div className="bg-white p-4 rounded text-amber-950">
         <p className="text-sm mb-3">
           Your trading wallet balance:{' '}
@@ -175,7 +175,7 @@ export default function WithdrawForm({ onboardingData, onWithdrawSuccess }: With
         </button>
         
         <p className="text-xs text-gray-500 mt-2">
-          ⚠️ This will transfer USDC from your trading wallet to the specified address on Hyperliquid network
+          Warning: This will transfer USDC from your trading wallet to the specified address on Hyperliquid network
         </p>
       </div>
     </div>

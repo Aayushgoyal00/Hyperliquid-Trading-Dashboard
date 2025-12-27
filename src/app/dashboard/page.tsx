@@ -296,7 +296,7 @@ function DashboardContent() {
                   {onboardingData?.funding.message}
                 </p>
                 <p className="mt-2 text-sm font-semibold">
-                  💡 Please transfer funds from your external wallet to your embedded trading wallet to start trading.
+                  Note: Please transfer funds from your external wallet to your embedded trading wallet to start trading.
                 </p>
               </div>
             </div>
@@ -334,7 +334,7 @@ function DashboardContent() {
                     : 'border-transparent text-gray-600 hover:text-blue-600'
                 }`}
               >
-                🏠 Home
+                Home
               </button>
               {onboardingData?.canTrade && (
                 <>
@@ -346,7 +346,7 @@ function DashboardContent() {
                         : 'border-transparent text-gray-600 hover:text-blue-600'
                     }`}
                   >
-                    📈 Place Orders
+                    Place Orders
                   </button>
                   <button
                     onClick={() => handleTabChange('transfer')}
@@ -356,7 +356,7 @@ function DashboardContent() {
                         : 'border-transparent text-gray-600 hover:text-blue-600'
                     }`}
                   >
-                    🔄 Spot-Perps Transfer
+                    Spot-Perps Transfer
                   </button>
                   <button
                     onClick={() => handleTabChange('withdraw')}
@@ -366,7 +366,7 @@ function DashboardContent() {
                         : 'border-transparent text-gray-600 hover:text-blue-600'
                     }`}
                   >
-                    💸 Withdraw
+                    Withdraw
                   </button>
                 </>
               )}

@@ -20,7 +20,7 @@ export default function WalletInfo({ onboardingData, isOnboarded }: WalletInfoPr
       <div className="space-y-3">
         {/* Embedded Trading Wallet */}
         <div className="bg-white p-3 rounded">
-          <h3 className="font-semibold text-sm mb-2">🔐 Trading Wallet (Privy Embedded)</h3>
+          <h3 className="font-semibold text-sm mb-2">Trading Wallet (Privy Embedded)</h3>
           <div className="flex items-center justify-between mb-1">
             <p className="text-xs font-mono truncate flex-1">
               {onboardingData.embeddedWallet.address}
@@ -36,20 +36,20 @@ export default function WalletInfo({ onboardingData, isOnboarded }: WalletInfoPr
             <div className="mt-2 space-y-1">
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="bg-green-50 p-2 rounded">
-                  <p className="text-gray-600 font-medium">💵 Spot Balance</p>
+                  <p className="text-gray-600 font-medium">Spot Balance</p>
                   <p className="text-green-700 font-bold">
                     ${parseFloat(onboardingData.embeddedWallet.hyperliquid.spotBalance || '0').toFixed(2)}
                   </p>
                 </div>
                 <div className="bg-blue-50 p-2 rounded">
-                  <p className="text-gray-600 font-medium">📊 Perps Balance</p>
+                  <p className="text-gray-600 font-medium">Perps Balance</p>
                   <p className="text-blue-700 font-bold">
                     ${parseFloat(onboardingData.embeddedWallet.hyperliquid.perpsBalance || '0').toFixed(2)}
                   </p>
                 </div>
               </div>
               <div className="bg-purple-50 p-2 rounded text-xs">
-                <p className="text-gray-600 font-medium">💰 Total Account Value</p>
+                <p className="text-gray-600 font-medium">Total Account Value</p>
                 <p className="text-purple-700 font-bold text-sm">
                   ${parseFloat(onboardingData.embeddedWallet.hyperliquid.accountValue || '0').toFixed(2)}
                 </p>
@@ -65,7 +65,7 @@ export default function WalletInfo({ onboardingData, isOnboarded }: WalletInfoPr
         {/* External Wallet Info */}
         {onboardingData.externalWallet && (
           <div className="bg-white p-3 rounded">
-            <h3 className="font-semibold text-sm mb-2">💳 Connected Wallet (External)</h3>
+            <h3 className="font-semibold text-sm mb-2">Connected Wallet (External)</h3>
             <p className="text-xs font-mono truncate mb-1">
               {onboardingData.externalWallet.address}
             </p>
@@ -73,20 +73,20 @@ export default function WalletInfo({ onboardingData, isOnboarded }: WalletInfoPr
               <div className="mt-2 space-y-1">
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="bg-green-50 p-2 rounded">
-                    <p className="text-gray-600 font-medium">💵 Spot Balance</p>
+                    <p className="text-gray-600 font-medium">Spot Balance</p>
                     <p className="text-green-700 font-bold">
                       ${parseFloat(onboardingData.externalWallet.hyperliquid.spotBalance || '0').toFixed(2)}
                     </p>
                   </div>
                   <div className="bg-blue-50 p-2 rounded">
-                    <p className="text-gray-600 font-medium">📊 Perps Balance</p>
+                    <p className="text-gray-600 font-medium">Perps Balance</p>
                     <p className="text-blue-700 font-bold">
                       ${parseFloat(onboardingData.externalWallet.hyperliquid.perpsBalance || '0').toFixed(2)}
                     </p>
                   </div>
                 </div>
                 <div className="bg-purple-50 p-2 rounded text-xs">
-                  <p className="text-gray-600 font-medium">💰 Total Account Value</p>
+                  <p className="text-gray-600 font-medium">Total Account Value</p>
                   <p className="text-purple-700 font-bold text-sm">
                     ${parseFloat(onboardingData.externalWallet.hyperliquid.accountValue || '0').toFixed(2)}
                   </p>
@@ -105,7 +105,7 @@ export default function WalletInfo({ onboardingData, isOnboarded }: WalletInfoPr
         )}
         
         <p className="text-sm">
-          <strong>Status:</strong> {isOnboarded ? 'Onboarded ✅' : 'Not onboarded'}
+          <strong>Status:</strong> {isOnboarded ? 'Onboarded' : 'Not onboarded'}
         </p>
       </div>
     </div>

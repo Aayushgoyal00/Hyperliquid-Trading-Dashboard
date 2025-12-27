@@ -12,7 +12,7 @@ export default function MarketData({ marketData, onRefresh }: MarketDataProps) {
 
   return (
     <div className="mb-6 p-4 bg-green-50 rounded text-green-900">
-      <h2 className="text-xl font-semibold mb-3">📊 Market Data - Top Assets</h2>
+      <h2 className="text-xl font-semibold mb-3">Market Data - Top Assets</h2>
       
       {/* Asset Prices Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
@@ -33,7 +33,7 @@ export default function MarketData({ marketData, onRefresh }: MarketDataProps) {
         onClick={onRefresh}
         className="w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded text-sm"
       >
-        🔄 Refresh Market Data
+        Refresh Market Data
       </button>
     </div>
   );

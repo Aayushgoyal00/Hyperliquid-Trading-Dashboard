@@ -15,7 +15,7 @@ export default function FundingStatus({ onboardingData, loading, onRefreshBalanc
 
   return (
     <div className="mb-6 p-4 bg-red-50 border-2 border-red-400 rounded">
-      <h2 className="text-xl font-semibold text-red-800 mb-3">⚠️ Funding Required</h2>
+      <h2 className="text-xl font-semibold text-red-800 mb-3">Funding Required</h2>
       
       {/* Hyperliquid Funding Status */}
       {onboardingData.funding.needsEmbeddedHyperliquidFunding && (
@@ -57,7 +57,7 @@ export default function FundingStatus({ onboardingData, loading, onRefreshBalanc
         disabled={loading}
         className="w-full bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
       >
-        {loading ? 'Checking...' : '🔄 Check Balance'}
+        {loading ? 'Checking...' : 'Check Balance'}
       </button>
     </div>
   );

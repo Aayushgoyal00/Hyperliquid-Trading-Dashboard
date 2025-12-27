@@ -87,7 +87,7 @@ export default function SpotPerpsTransfer({ onboardingData, onTransferSuccess }:
       const fromAccount = toPerp ? 'Spot' : 'Perps';
       const toAccount = toPerp ? 'Perps' : 'Spot';
 
-      console.log(`🔄 Transferring $${amount} USDC from ${fromAccount} to ${toAccount} on ${IS_TESTNET ? 'TESTNET' : 'MAINNET'}...`);
+      console.log(`Transferring $${amount} USDC from ${fromAccount} to ${toAccount} on ${IS_TESTNET ? 'TESTNET' : 'MAINNET'}...`);
 
       // Perform the account class transfer
       const transferResponse = await exchangeClient.usdClassTransfer({
@@ -98,7 +98,7 @@ export default function SpotPerpsTransfer({ onboardingData, onTransferSuccess }:
       console.log('Transfer response:', transferResponse);
 
       if (transferResponse.status === 'ok') {
-        alert(`✅ Transfer successful! Moved $${amount} USDC from ${fromAccount} to ${toAccount}`);
+        alert(`Transfer successful! Moved $${amount} USDC from ${fromAccount} to ${toAccount}`);
         setTimeout(() => {
           onTransferSuccess();
         }, 2000);
@@ -108,7 +108,7 @@ export default function SpotPerpsTransfer({ onboardingData, onTransferSuccess }:
     } catch (error) {
       console.error('Transfer failed:', error);
       const errorMessage = parseErrorMessage(error, 'Transfer failed. Please try again.');
-      alert(`❌ ${errorMessage}`);
+      alert(`Error: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -120,7 +120,7 @@ export default function SpotPerpsTransfer({ onboardingData, onTransferSuccess }:
 
   return (
     <div className="mb-6 p-4 bg-cyan-50 border-2 border-cyan-400 rounded">
-      <h2 className="text-xl font-semibold text-cyan-800 mb-3">🔄 Transfer Between Spot & Perps</h2>
+      <h2 className="text-xl font-semibold text-cyan-800 mb-3">Transfer Between Spot & Perps</h2>
       <div className="bg-white p-4 rounded text-amber-950">
         <p className="text-sm mb-3">
           Move funds between your Spot and Perps accounts for the embedded trading wallet
@@ -129,11 +129,11 @@ export default function SpotPerpsTransfer({ onboardingData, onTransferSuccess }:
         {/* Balance Display */}
         <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
           <div className="bg-green-50 p-2 rounded">
-            <p className="text-gray-600 font-medium">💵 Spot Balance</p>
+            <p className="text-gray-600 font-medium">Spot Balance</p>
             <p className="text-green-700 font-bold">${spotBalance.toFixed(2)}</p>
           </div>
           <div className="bg-blue-50 p-2 rounded">
-            <p className="text-gray-600 font-medium">📊 Perps Balance</p>
+            <p className="text-gray-600 font-medium">Perps Balance</p>
             <p className="text-blue-700 font-bold">${perpsBalance.toFixed(2)}</p>
           </div>
         </div>
@@ -146,8 +146,8 @@ export default function SpotPerpsTransfer({ onboardingData, onTransferSuccess }:
             onChange={(e) => setTransferDirection(e.target.value as 'spotToPerps' | 'perpsToSpot')}
             className="w-full p-2 border rounded"
           >
-            <option value="spotToPerps">💵 Spot → 📊 Perps</option>
-            <option value="perpsToSpot">📊 Perps → 💵 Spot</option>
+            <option value="spotToPerps">Spot → Perps</option>
+            <option value="perpsToSpot">Perps → Spot</option>
           </select>
           <p className="text-xs text-gray-600 mt-1">
             {transferDirection === 'spotToPerps' 
@@ -184,7 +184,7 @@ export default function SpotPerpsTransfer({ onboardingData, onTransferSuccess }:
         </button>
         
         <p className="text-xs text-gray-500 mt-2">
-          ⚠️ This will transfer USDC between your Spot and Perps accounts on Hyperliquid
+          Warning: This will transfer USDC between your Spot and Perps accounts on Hyperliquid
         </p>
       </div>
     </div>
